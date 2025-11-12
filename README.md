@@ -65,7 +65,7 @@ AffinityHook, AffinityBootstrap, AffinityPluginLoader, and the project solution 
 directory of the repository are licensed under the MIT License except for the exemption noted below. You can 
 find a copy of the license in the LICENSE file under the directories for each respective project.
 
-WineFix is licensed under the terms of the GPLv2 except fro the exemption noted below. You can find a copy of 
+WineFix is licensed under the terms of the GPLv2 except for the exemption noted below. You can find a copy of 
 the license in the LICENSE file in the WineFix directory.
 
 ### License Exemption
