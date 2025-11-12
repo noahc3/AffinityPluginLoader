@@ -7,6 +7,8 @@ the Harmony library. No more patching DLL files on disk.
 
 APL supports Windows and Linux (Wine). MacOS support is not planned at this time.
 
+<img width="2880" height="1667" alt="image" src="https://github.com/user-attachments/assets/dfb26511-22a4-4bb4-be90-1bcce3cd6909" />
+
 ## Install
 
 1. Download `affinitypluginloader-vX.X.X.X-amd64.zip` from the [latest release](https://github.com/noahc3/AffinityPluginLoader/releases).
