@@ -9,7 +9,7 @@ APL supports Windows and Linux (Wine). MacOS support is not planned at this time
 
 ## Install
 
-1. Download `affinitypluginloader-vX.X.X.X-amd64.zip` from the latest release.
+1. Download `affinitypluginloader-vX.X.X.X-amd64.zip` from the [latest release](https://github.com/noahc3/AffinityPluginLoader/releases).
 2. Extract the contents of the archive into your Affinity install directory
   - This is `C:/Program Files/Affinity/Affinity/` by default on Windows, or
     `path/to/wineprefix/drive_c/Program Files/Affinity/Affinity/` on Linux.
@@ -30,7 +30,7 @@ As such it's recommended you update your existing shortcuts or create new shortc
 WineFix is an APL plugin which aims to patch bugs encountered when running Affinity on Linux under Wine using
 runtime code patches. 
 
-To install WineFix, download `apl-winefix-vX.X.X.X.zip` from the latest release and extract the `plugins`
+To install WineFix, download `apl-winefix-vX.X.X.X.zip` from the [latest release](https://github.com/noahc3/AffinityPluginLoader/releases) and extract the `plugins`
 directory to your Affinity install directory. That is, `WineFix.dll` should be inside the `plugins` folder
 in your Affinity directory after extraction.
 
