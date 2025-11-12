@@ -2,7 +2,7 @@
 # Builds clean distribution packages from Release build output
 
 param(
-    [string]$Version = "0.1.0.0",
+    [string]$Version = "0.1.0.1",
     [switch]$IncludeSymbols = $false
 )
 

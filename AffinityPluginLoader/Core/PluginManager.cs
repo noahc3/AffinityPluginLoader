@@ -33,7 +33,7 @@ namespace AffinityPluginLoader.Core
             var loaderInfo = new PluginInfo
             {
                 Name = loaderNameAttr?.Title ?? "AffinityPluginLoader",
-                Version = loaderVersionAttr?.Version ?? loaderAssembly.GetName().Version?.ToString() ?? "0.1.0",
+                Version = loaderVersionAttr?.Version ?? loaderAssembly.GetName().Version?.ToString() ?? "0.1.0.1",
                 Author = loaderCompanyAttr?.Company ?? "AffinityPluginLoader",
                 AssemblyName = loaderAssembly.FullName
             };

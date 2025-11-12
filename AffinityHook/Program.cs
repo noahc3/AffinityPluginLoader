@@ -107,9 +107,6 @@ namespace AffinityPluginLoader
                     
                     InjectBootstrap(process.Id, pluginLoaderPath);
                 }
-                
-                Console.WriteLine("Press Enter to exit...");
-                Console.ReadLine();
                 return 0;
             }
             catch (Exception ex)

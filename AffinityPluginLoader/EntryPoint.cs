@@ -69,7 +69,7 @@ namespace AffinityPluginLoader
                 {
                     // Fallback: run in current domain
                     FileLog.Log($"Running in current AppDomain\n");
-                    var harmony = new Harmony("com.affinitypluginloader");
+                    var harmony = new Harmony("dev.ncuroe.affinitypluginloader");
                     Core.PluginManager.Initialize(harmony);
                 }
             }
@@ -108,7 +108,7 @@ namespace AffinityPluginLoader
             {
                 HarmonyLib.FileLog.Log($"DefaultDomainPatcher running in AppDomain: {AppDomain.CurrentDomain.FriendlyName}\n");
                 
-                var harmony = new Harmony("com.affinitypluginloader");
+                var harmony = new Harmony("dev.ncuroe.affinitypluginloader");
                 Core.PluginManager.Initialize(harmony);
             }
             catch (Exception ex)
