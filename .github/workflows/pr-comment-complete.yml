@@ -1,0 +1,131 @@
+name: PR Comment - Build Complete
+
+on:
+  workflow_run:
+    workflows: ["Build AffinityPluginLoader"]
+    types:
+      - completed
+
+# Cancel in-progress runs when a new workflow with the same group name is triggered
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.workflow_run.pull_requests[0].number }}
+  cancel-in-progress: true
+
+jobs:
+  # Comment on PR with artifact links (success) or failure message
+  pr-comment-completed:
+    name: Post PR Comment with Build Result
+    runs-on: ubuntu-latest
+    if: >
+      github.event.workflow_run.event == 'pull_request' &&
+      github.event.workflow_run.status == 'completed' &&
+      github.event.workflow_run.pull_requests[0] != null
+    permissions:
+      pull-requests: write
+      actions: read
+    
+    steps:
+      - name: Get PR and commit info
+        id: pr-info
+        run: |
+          echo "pr_number=${{ github.event.workflow_run.pull_requests[0].number }}" >> $GITHUB_OUTPUT
+          echo "head_sha=${{ github.event.workflow_run.head_sha }}" >> $GITHUB_OUTPUT
+          echo "short_sha=$(echo ${{ github.event.workflow_run.head_sha }} | cut -c1-7)" >> $GITHUB_OUTPUT
+          echo "run_id=${{ github.event.workflow_run.id }}" >> $GITHUB_OUTPUT
+          echo "conclusion=${{ github.event.workflow_run.conclusion }}" >> $GITHUB_OUTPUT
+
+      - name: Find existing comment
+        uses: peter-evans/find-comment@v3
+        id: find-comment
+        with:
+          issue-number: ${{ steps.pr-info.outputs.pr_number }}
+          comment-author: 'github-actions[bot]'
+          body-includes: '<!-- affinitypluginloader-build-artifacts -->'
+
+      - name: Get last successful build (if current failed)
+        if: steps.pr-info.outputs.conclusion != 'success'
+        id: last-success
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # Find the last successful build for this PR
+          LAST_SUCCESS=$(gh api \
+            -H "Accept: application/vnd.github+json" \
+            "/repos/${{ github.repository }}/actions/workflows/build.yml/runs?head_sha=${{ steps.pr-info.outputs.head_sha }}&status=success" \
+            --jq '.workflow_runs[0] // empty')
+          
+          if [ -n "$LAST_SUCCESS" ]; then
+            LAST_RUN_ID=$(echo "$LAST_SUCCESS" | jq -r '.id')
+            LAST_SHA=$(echo "$LAST_SUCCESS" | jq -r '.head_sha' | cut -c1-7)
+            echo "run_id=$LAST_RUN_ID" >> $GITHUB_OUTPUT
+            echo "short_sha=$LAST_SHA" >> $GITHUB_OUTPUT
+            echo "found=true" >> $GITHUB_OUTPUT
+          else
+            echo "found=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Create or update PR comment (success)
+        if: steps.pr-info.outputs.conclusion == 'success'
+        uses: peter-evans/create-or-update-comment@v4
+        with:
+          comment-id: ${{ steps.find-comment.outputs.comment-id }}
+          issue-number: ${{ steps.pr-info.outputs.pr_number }}
+          edit-mode: replace
+          body: |
+            <!-- affinitypluginloader-build-artifacts -->
+            ## 🚀 Build Artifacts Ready
+            
+            **Commit:** `${{ steps.pr-info.outputs.short_sha }}`
+            **Build Workflow:** [View Run](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ steps.pr-info.outputs.run_id }})
+            
+            ### 📦 Direct Downloads (via nightly.link):
+            
+            - **[affinitypluginloader-${{ steps.pr-info.outputs.short_sha }}-x64.zip](https://nightly.link/${{ github.repository }}/actions/runs/${{ steps.pr-info.outputs.run_id }}/affinitypluginloader-${{ steps.pr-info.outputs.short_sha }}-x64.zip)** - Main loader package
+            - **[apl-winefix-${{ steps.pr-info.outputs.short_sha }}-x64.zip](https://nightly.link/${{ github.repository }}/actions/runs/${{ steps.pr-info.outputs.run_id }}/apl-winefix-${{ steps.pr-info.outputs.short_sha }}-x64.zip)** - WineFix plugin  
+            - **[affinitypluginloader-plus-winefix-${{ steps.pr-info.outputs.short_sha }}-x64.tar.xz.zip](https://nightly.link/${{ github.repository }}/actions/runs/${{ steps.pr-info.outputs.run_id }}/affinitypluginloader-plus-winefix-${{ steps.pr-info.outputs.short_sha }}-x64.tar.xz.zip)** - Combined package (tar.xz)
+            - **[release-archives-${{ steps.pr-info.outputs.short_sha }}.zip](https://nightly.link/${{ github.repository }}/actions/runs/${{ steps.pr-info.outputs.run_id }}/release-archives-${{ steps.pr-info.outputs.short_sha }}.zip)** - All release archives
+            
+            > 💡 These are direct download links powered by [nightly.link](https://nightly.link). No authentication required!
+
+      - name: Create or update PR comment (failure with previous success)
+        if: steps.pr-info.outputs.conclusion != 'success' && steps.last-success.outputs.found == 'true'
+        uses: peter-evans/create-or-update-comment@v4
+        with:
+          comment-id: ${{ steps.find-comment.outputs.comment-id }}
+          issue-number: ${{ steps.pr-info.outputs.pr_number }}
+          edit-mode: replace
+          body: |
+            <!-- affinitypluginloader-build-artifacts -->
+            ## ❌ Build Failed
+            
+            **Commit:** `${{ steps.pr-info.outputs.short_sha }}`
+            **Failed Workflow:** [View Run](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ steps.pr-info.outputs.run_id }})
+            
+            The build failed for this commit. Please check the workflow logs for details.
+            
+            ---
+            
+            ### 📦 Last Successful Build (`${{ steps.last-success.outputs.short_sha }}`):
+            
+            - **[affinitypluginloader-${{ steps.last-success.outputs.short_sha }}-x64.zip](https://nightly.link/${{ github.repository }}/actions/runs/${{ steps.last-success.outputs.run_id }}/affinitypluginloader-${{ steps.last-success.outputs.short_sha }}-x64.zip)** - Main loader package
+            - **[apl-winefix-${{ steps.last-success.outputs.short_sha }}-x64.zip](https://nightly.link/${{ github.repository }}/actions/runs/${{ steps.last-success.outputs.run_id }}/apl-winefix-${{ steps.last-success.outputs.short_sha }}-x64.zip)** - WineFix plugin  
+            - **[affinitypluginloader-plus-winefix-${{ steps.last-success.outputs.short_sha }}-x64.tar.xz.zip](https://nightly.link/${{ github.repository }}/actions/runs/${{ steps.last-success.outputs.run_id }}/affinitypluginloader-plus-winefix-${{ steps.last-success.outputs.short_sha }}-x64.tar.xz.zip)** - Combined package (tar.xz)
+            - **[release-archives-${{ steps.last-success.outputs.short_sha }}.zip](https://nightly.link/${{ github.repository }}/actions/runs/${{ steps.last-success.outputs.run_id }}/release-archives-${{ steps.last-success.outputs.short_sha }}.zip)** - All release archives
+
+      - name: Create or update PR comment (failure with no previous success)
+        if: steps.pr-info.outputs.conclusion != 'success' && steps.last-success.outputs.found != 'true'
+        uses: peter-evans/create-or-update-comment@v4
+        with:
+          comment-id: ${{ steps.find-comment.outputs.comment-id }}
+          issue-number: ${{ steps.pr-info.outputs.pr_number }}
+          edit-mode: replace
+          body: |
+            <!-- affinitypluginloader-build-artifacts -->
+            ## ❌ Build Failed
+            
+            **Commit:** `${{ steps.pr-info.outputs.short_sha }}`
+            **Failed Workflow:** [View Run](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ steps.pr-info.outputs.run_id }})
+            
+            The build failed for this commit. Please check the workflow logs for details.
+            
+            No previous successful builds found for this PR.

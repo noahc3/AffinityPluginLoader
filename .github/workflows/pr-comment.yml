@@ -1,34 +1,41 @@
-name: PR Comment with Build Artifacts
+name: PR Comment - Build Starting
 
 on:
-  pull_request_target:
-    types: [opened, synchronize, reopened, ready_for_review]
-    branches:
-      - main
+  workflow_run:
+    workflows: ["Build AffinityPluginLoader"]
+    types:
+      - in_progress
 
 # Cancel in-progress runs when a new workflow with the same group name is triggered
 concurrency:
-  group: ${{ github.workflow }}-${{ github.event.pull_request.number }}
+  group: ${{ github.workflow }}-${{ github.event.workflow_run.pull_requests[0].number }}
   cancel-in-progress: true
 
 jobs:
-  # Update PR comment to show build in progress
-  pr-comment-start:
+  # Post initial "build starting" comment
+  pr-comment-starting:
     name: Update PR Comment (Build Starting)
     runs-on: ubuntu-latest
+    if: >
+      github.event.workflow_run.event == 'pull_request' &&
+      github.event.workflow_run.status == 'in_progress' &&
+      github.event.workflow_run.pull_requests[0] != null
     permissions:
       pull-requests: write
     
     steps:
-      - name: Get short commit hash
-        id: commit
-        run: echo "short_sha=$(echo ${{ github.event.pull_request.head.sha }} | cut -c1-7)" >> $GITHUB_OUTPUT
+      - name: Get PR and commit info
+        id: pr-info
+        run: |
+          echo "pr_number=${{ github.event.workflow_run.pull_requests[0].number }}" >> $GITHUB_OUTPUT
+          echo "short_sha=$(echo ${{ github.event.workflow_run.head_sha }} | cut -c1-7)" >> $GITHUB_OUTPUT
+          echo "run_id=${{ github.event.workflow_run.id }}" >> $GITHUB_OUTPUT
 
       - name: Find existing comment
         uses: peter-evans/find-comment@v3
         id: find-comment
         with:
-          issue-number: ${{ github.event.pull_request.number }}
+          issue-number: ${{ steps.pr-info.outputs.pr_number }}
           comment-author: 'github-actions[bot]'
           body-includes: '<!-- affinitypluginloader-build-artifacts -->'
 
@@ -36,76 +43,13 @@ jobs:
         uses: peter-evans/create-or-update-comment@v4
         with:
           comment-id: ${{ steps.find-comment.outputs.comment-id }}
-          issue-number: ${{ github.event.pull_request.number }}
+          issue-number: ${{ steps.pr-info.outputs.pr_number }}
           edit-mode: replace
           body: |
             <!-- affinitypluginloader-build-artifacts -->
             ## ⏳ Build In Progress
             
-            **Commit:** `${{ steps.commit.outputs.short_sha }}`
+            **Commit:** `${{ steps.pr-info.outputs.short_sha }}`
+            **Workflow Run:** [#${{ github.event.workflow_run.run_number }}](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ steps.pr-info.outputs.run_id }})
             
             Building artifacts... This comment will be updated with download links when the build completes.
-
-  # Comment on PR with artifact links
-  pr-comment-complete:
-    name: Post PR Comment with Artifacts
-    runs-on: ubuntu-latest
-    permissions:
-      pull-requests: write
-      actions: read
-    
-    steps:
-      - name: Get short commit hash
-        id: commit
-        run: echo "short_sha=$(echo ${{ github.event.pull_request.head.sha }} | cut -c1-7)" >> $GITHUB_OUTPUT
-
-      - name: Wait for build workflow to complete
-        uses: fountainhead/action-wait-for-check@v1.2.0
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-          checkName: Package Release Artifacts
-          ref: ${{ github.event.pull_request.head.sha }}
-          timeoutSeconds: 1800
-          intervalSeconds: 10
-
-      - name: Find existing comment
-        uses: peter-evans/find-comment@v3
-        id: find-comment
-        with:
-          issue-number: ${{ github.event.pull_request.number }}
-          comment-author: 'github-actions[bot]'
-          body-includes: '<!-- affinitypluginloader-build-artifacts -->'
-
-      - name: Get build workflow run ID
-        id: get-run
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          # Get the workflow run ID for the build workflow that matches this commit
-          RUN_ID=$(gh api \
-            -H "Accept: application/vnd.github+json" \
-            "/repos/${{ github.repository }}/actions/workflows/build.yml/runs?head_sha=${{ github.event.pull_request.head.sha }}&status=completed" \
-            --jq '.workflow_runs[0].id')
-          echo "run_id=$RUN_ID" >> $GITHUB_OUTPUT
-
-      - name: Create or update PR comment
-        uses: peter-evans/create-or-update-comment@v4
-        with:
-          comment-id: ${{ steps.find-comment.outputs.comment-id }}
-          issue-number: ${{ github.event.pull_request.number }}
-          edit-mode: replace
-          body: |
-            <!-- affinitypluginloader-build-artifacts -->
-            ## 🚀 Build Artifacts Ready
-            
-            **Commit:** `${{ steps.commit.outputs.short_sha }}`
-            **Build Workflow:** [View Run](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ steps.get-run.outputs.run_id }})
-            
-            ### 📦 Direct Downloads (via nightly.link):
-            
-            - **[affinitypluginloader-${{ steps.commit.outputs.short_sha }}-x64.zip](https://nightly.link/${{ github.repository }}/actions/runs/${{ steps.get-run.outputs.run_id }}/affinitypluginloader-${{ steps.commit.outputs.short_sha }}-x64.zip)** - Main loader package
-            - **[apl-winefix-${{ steps.commit.outputs.short_sha }}-x64.zip](https://nightly.link/${{ github.repository }}/actions/runs/${{ steps.get-run.outputs.run_id }}/apl-winefix-${{ steps.commit.outputs.short_sha }}-x64.zip)** - WineFix plugin  
-            - **[affinitypluginloader-plus-winefix-${{ steps.commit.outputs.short_sha }}-x64.tar.xz.zip](https://nightly.link/${{ github.repository }}/actions/runs/${{ steps.get-run.outputs.run_id }}/affinitypluginloader-plus-winefix-${{ steps.commit.outputs.short_sha }}-x64.tar.xz.zip)** - Combined package (tar.xz)
-            - **[release-archives-${{ steps.commit.outputs.short_sha }}.zip](https://nightly.link/${{ github.repository }}/actions/runs/${{ steps.get-run.outputs.run_id }}/release-archives-${{ steps.commit.outputs.short_sha }}.zip)** - All release archives
-            
-            > 💡 These are direct download links powered by [nightly.link](https://nightly.link). No authentication required!
