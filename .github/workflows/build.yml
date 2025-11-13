@@ -21,6 +21,8 @@ jobs:
     name: Build Starting
     runs-on: ubuntu-latest
     if: github.event_name == 'pull_request'
+    permissions:
+      contents: write
     steps:
       - name: Dispatch build-started event
         uses: peter-evans/repository-dispatch@v3
@@ -225,6 +227,9 @@ jobs:
     runs-on: ubuntu-latest
     if: github.event_name == 'pull_request' && always()
     needs: [build-bootstrap, build-csharp, package]
+    permissions:
+      contents: write
+      actions: read
     steps:
       - name: Get last successful run
         id: last-success
