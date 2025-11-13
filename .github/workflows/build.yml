@@ -225,13 +225,6 @@ jobs:
           name: affinitypluginloader-plus-winefix-${{ steps.commit.outputs.short_sha }}-x64.tar.xz
           path: affinitypluginloader-plus-winefix-${{ steps.commit.outputs.short_sha }}-x64.tar.xz
           if-no-files-found: error
-
-      - name: Upload combined package (normalized filename tar.xz)
-        uses: actions/upload-artifact@v4
-        with:
-          name: affinitypluginloader-plus-winefix-x64.tar.xz
-          path: affinitypluginloader-plus-winefix-x64.tar.xz
-          if-no-files-found: error
       
       - name: Upload release archives
         uses: actions/upload-artifact@v4
