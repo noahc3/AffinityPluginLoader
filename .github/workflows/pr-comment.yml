@@ -1,15 +1,12 @@
 name: PR Comment - Build Starting
 
 on:
-  workflow_run:
-    workflows: ["Build AffinityPluginLoader"]
-    types:
-      - requested
-      - in_progress
+  repository_dispatch:
+    types: [build-started]
 
 # Cancel in-progress runs when a new workflow with the same group name is triggered
 concurrency:
-  group: ${{ github.workflow }}-${{ github.event.workflow_run.pull_requests[0].number }}
+  group: ${{ github.workflow }}-${{ github.event.client_payload.pr_number }}
   cancel-in-progress: true
 
 jobs:
@@ -17,10 +14,6 @@ jobs:
   pr-comment-starting:
     name: Update PR Comment (Build Starting)
     runs-on: ubuntu-latest
-    if: >
-      github.event.workflow_run.event == 'pull_request' &&
-      (github.event.workflow_run.status == 'requested' || github.event.workflow_run.status == 'in_progress') &&
-      github.event.workflow_run.pull_requests[0] != null
     permissions:
       pull-requests: write
     
@@ -28,9 +21,9 @@ jobs:
       - name: Get PR and commit info
         id: pr-info
         run: |
-          echo "pr_number=${{ github.event.workflow_run.pull_requests[0].number }}" >> $GITHUB_OUTPUT
-          echo "short_sha=$(echo ${{ github.event.workflow_run.head_sha }} | cut -c1-7)" >> $GITHUB_OUTPUT
-          echo "run_id=${{ github.event.workflow_run.id }}" >> $GITHUB_OUTPUT
+          echo "pr_number=${{ github.event.client_payload.pr_number }}" >> $GITHUB_OUTPUT
+          echo "short_sha=$(echo ${{ github.event.client_payload.head_sha }} | cut -c1-7)" >> $GITHUB_OUTPUT
+          echo "run_id=${{ github.event.client_payload.run_id }}" >> $GITHUB_OUTPUT
 
       - name: Find existing comment
         uses: peter-evans/find-comment@v3
@@ -51,6 +44,5 @@ jobs:
             ## ⏳ Build In Progress
             
             **Commit:** `${{ steps.pr-info.outputs.short_sha }}`
-            **Workflow Run:** [#${{ github.event.workflow_run.run_number }}](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ steps.pr-info.outputs.run_id }})
             
             Building artifacts... This comment will be updated with download links when the build completes.
