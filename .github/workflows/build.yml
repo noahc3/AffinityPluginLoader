@@ -1,0 +1,201 @@
+name: Build AffinityPluginLoader
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+    branches:
+      - main
+  workflow_dispatch:
+
+# Cancel in-progress runs when a new workflow with the same group name is triggered
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # Build the native C++ bootstrap DLL
+  build-bootstrap:
+    name: Build AffinityBootstrap (Native)
+    runs-on: windows-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup MSBuild
+        uses: microsoft/setup-msbuild@v2
+
+      - name: Setup MSVC Developer Command Prompt
+        uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: x64
+
+      - name: Build AffinityBootstrap.dll
+        working-directory: AffinityBootstrap
+        run: |
+          cl.exe /nologo /O2 /LD bootstrap.c /link /NOLOGO ole32.lib oleaut32.lib uuid.lib /OUT:AffinityBootstrap.dll
+        shell: cmd
+
+      - name: Upload AffinityBootstrap artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: AffinityBootstrap
+          path: AffinityBootstrap/AffinityBootstrap.dll
+          if-no-files-found: error
+
+  # Build all C# projects (.NET Framework 4.8)
+  build-csharp:
+    name: Build C# Projects (.NET Framework 4.8)
+    runs-on: windows-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup MSBuild
+        uses: microsoft/setup-msbuild@v2
+
+      - name: Setup NuGet
+        uses: nuget/setup-nuget@v2
+
+      - name: Restore NuGet packages
+        run: nuget restore AffinityPluginLoader.slnx
+
+      - name: Build AffinityPluginLoader
+        run: msbuild AffinityPluginLoader/AffinityPluginLoader.csproj /p:Configuration=Release /p:Platform=x64 /p:OutputPath=bin\x64\Release\ /p:SkipInvalidConfigurations=true
+
+      - name: Build WineFix
+        run: msbuild WineFix/WineFix.csproj /p:Configuration=Release /p:Platform=x64 /p:OutputPath=bin\x64\Release\ /p:SkipInvalidConfigurations=true
+
+      - name: Build AffinityHook
+        run: msbuild AffinityHook/AffinityHook.csproj /p:Configuration=Release /p:Platform=x64 /p:OutputPath=bin\x64\Release\ /p:SkipInvalidConfigurations=true
+
+      - name: Upload AffinityPluginLoader artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: AffinityPluginLoader
+          path: |
+            AffinityPluginLoader/bin/x64/Release/AffinityPluginLoader.dll
+            AffinityPluginLoader/bin/x64/Release/0Harmony.dll
+          if-no-files-found: error
+
+      - name: Upload AffinityHook artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: AffinityHook
+          path: AffinityHook/bin/x64/Release/AffinityHook.exe
+          if-no-files-found: error
+
+      - name: Upload WineFix artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: WineFix
+          path: WineFix/bin/x64/Release/WineFix.dll
+          if-no-files-found: error
+
+  # Package all artifacts into release archives
+  package:
+    name: Package Release Artifacts
+    runs-on: ubuntu-latest
+    needs: [build-bootstrap, build-csharp]
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Get short commit hash
+        id: commit
+        run: echo "short_sha=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
+
+      - name: Download AffinityBootstrap artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: AffinityBootstrap
+          path: build/bootstrap
+
+      - name: Download AffinityPluginLoader artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: AffinityPluginLoader
+          path: build/pluginloader
+
+      - name: Download AffinityHook artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: AffinityHook
+          path: build/hook
+
+      - name: Download WineFix artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: WineFix
+          path: build/winefix
+
+      - name: Create affinitypluginloader package structure
+        run: |
+          mkdir -p package/affinitypluginloader
+          cp build/bootstrap/AffinityBootstrap.dll package/affinitypluginloader/
+          cp build/hook/AffinityHook.exe package/affinitypluginloader/
+          cp build/pluginloader/AffinityPluginLoader.dll package/affinitypluginloader/
+          cp build/pluginloader/0Harmony.dll package/affinitypluginloader/
+          cp AffinityPluginLoader/LICENSE package/affinitypluginloader/LICENSE
+          cp README.md package/affinitypluginloader/README.md
+
+      - name: Create apl-winefix package structure
+        run: |
+          mkdir -p package/winefix/plugins
+          cp build/winefix/WineFix.dll package/winefix/plugins/
+          cp WineFix/LICENSE package/winefix/plugins/LICENSE
+
+      - name: Create combined package structure
+        run: |
+          mkdir -p package/combined/plugins
+          cp build/bootstrap/AffinityBootstrap.dll package/combined/
+          cp build/hook/AffinityHook.exe package/combined/
+          cp build/pluginloader/AffinityPluginLoader.dll package/combined/
+          cp build/pluginloader/0Harmony.dll package/combined/
+          cp build/winefix/WineFix.dll package/combined/plugins/
+
+      - name: Create release archives
+        run: |
+          cd package/affinitypluginloader
+          zip -r ../../affinitypluginloader-${{ steps.commit.outputs.short_sha }}-x64.zip .
+          cd ../winefix
+          zip -r ../../apl-winefix-${{ steps.commit.outputs.short_sha }}-x64.zip .
+          cd ../combined
+          tar -cJf ../../affinitypluginloader-plus-winefix-${{ steps.commit.outputs.short_sha }}-x64.tar.xz .
+          cd ../..
+
+      - name: Upload affinitypluginloader package
+        uses: actions/upload-artifact@v4
+        with:
+          name: affinitypluginloader-${{ steps.commit.outputs.short_sha }}-x64
+          path: package/affinitypluginloader/
+          if-no-files-found: error
+
+      - name: Upload apl-winefix package
+        uses: actions/upload-artifact@v4
+        with:
+          name: apl-winefix-${{ steps.commit.outputs.short_sha }}-x64
+          path: package/winefix/
+          if-no-files-found: error
+
+      - name: Upload combined package (tar.xz)
+        uses: actions/upload-artifact@v4
+        with:
+          name: affinitypluginloader-plus-winefix-${{ steps.commit.outputs.short_sha }}-x64
+          path: affinitypluginloader-plus-winefix-${{ steps.commit.outputs.short_sha }}-x64.tar.xz
+          if-no-files-found: error
+      
+      - name: Upload release archives
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-archives-${{ steps.commit.outputs.short_sha }}
+          path: |
+            affinitypluginloader-${{ steps.commit.outputs.short_sha }}-x64.zip
+            apl-winefix-${{ steps.commit.outputs.short_sha }}-x64.zip
+            affinitypluginloader-plus-winefix-${{ steps.commit.outputs.short_sha }}-x64.tar.xz
+          if-no-files-found: error
