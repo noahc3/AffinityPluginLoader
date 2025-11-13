@@ -90,8 +90,6 @@ jobs:
             - **[apl-winefix-${{ steps.run-info.outputs.short_sha }}-x64.zip](https://nightly.link/${{ github.repository }}/actions/runs/${{ steps.run-info.outputs.run_id }}/apl-winefix-${{ steps.run-info.outputs.short_sha }}-x64.zip)** - WineFix plugin  
             - **[affinitypluginloader-plus-winefix-${{ steps.run-info.outputs.short_sha }}-x64.tar.xz.zip](https://nightly.link/${{ github.repository }}/actions/runs/${{ steps.run-info.outputs.run_id }}/affinitypluginloader-plus-winefix-${{ steps.run-info.outputs.short_sha }}-x64.tar.xz.zip)** - Combined package (tar.xz)
             - **[release-archives-${{ steps.run-info.outputs.short_sha }}.zip](https://nightly.link/${{ github.repository }}/actions/runs/${{ steps.run-info.outputs.run_id }}/release-archives-${{ steps.run-info.outputs.short_sha }}.zip)** - All release archives
-            
-            > 💡 These are direct download links powered by [nightly.link](https://nightly.link). No authentication required!
 
       - name: Create or update PR comment (failure with previous success)
         if: steps.run-info.outputs.conclusion != 'success' && steps.last-success.outputs.result != 'null'
