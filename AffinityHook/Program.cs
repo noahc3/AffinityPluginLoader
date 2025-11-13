@@ -10,10 +10,28 @@ namespace AffinityPluginLoader
 {
     internal class Program
     {
+        private static Process _affinityProcess;
+        
         static int Main(string[] args)
         {
             try
             {
+                // Check for --detach flag
+                bool detachMode = false;
+                var affinityArgs = new System.Collections.Generic.List<string>();
+                
+                foreach (string arg in args)
+                {
+                    if (arg.Equals("--detach", StringComparison.OrdinalIgnoreCase))
+                    {
+                        detachMode = true;
+                    }
+                    else
+                    {
+                        affinityArgs.Add(arg);
+                    }
+                }
+                
                 // Get the directory where AffinityHook.exe is located
                 string hookExeDir = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location);
                 string hookExeName = Path.GetFileName(Assembly.GetExecutingAssembly().Location);
@@ -86,15 +104,28 @@ namespace AffinityPluginLoader
                 }
                 
                 Console.WriteLine($"Starting Affinity from: {affinityExe}");
+                Console.WriteLine($"Mode: {(detachMode ? "Detached" : "Attached")}");
                 
-                // Start the process
-                var process = Process.Start(new ProcessStartInfo
+                // Start the process with inherited console
+                var startInfo = new ProcessStartInfo
                 {
                     FileName = affinityExe,
-                    Arguments = string.Join(" ", args),
+                    Arguments = string.Join(" ", affinityArgs),
                     WorkingDirectory = affinityDir,
-                    UseShellExecute = false
-                });
+                    UseShellExecute = false,
+                    CreateNoWindow = false
+                };
+                
+                // In attached mode, inherit standard streams so output appears in same terminal
+                if (!detachMode)
+                {
+                    startInfo.RedirectStandardOutput = false;
+                    startInfo.RedirectStandardError = false;
+                    startInfo.RedirectStandardInput = false;
+                }
+                
+                var process = Process.Start(startInfo);
+                _affinityProcess = process;
                 
                 Console.WriteLine($"Process started (PID {process.Id})");
                 
@@ -107,6 +138,40 @@ namespace AffinityPluginLoader
                     
                     InjectBootstrap(process.Id, pluginLoaderPath);
                 }
+                
+                // Wait for Affinity to exit unless in detach mode
+                if (!detachMode)
+                {
+                    // Set up Ctrl+C handler to forward signal to Affinity
+                    Console.CancelKeyPress += (sender, e) =>
+                    {
+                        e.Cancel = true; // Prevent immediate termination of hook
+                        Console.WriteLine("\nReceived Ctrl+C, terminating Affinity...");
+                        
+                        try
+                        {
+                            if (_affinityProcess != null && !_affinityProcess.HasExited)
+                            {
+                                // Try graceful shutdown first
+                                if (!_affinityProcess.CloseMainWindow())
+                                {
+                                    // If that fails, kill it
+                                    _affinityProcess.Kill();
+                                }
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            Console.Error.WriteLine($"Error terminating Affinity: {ex.Message}");
+                        }
+                    };
+                    
+                    Console.WriteLine("Waiting for Affinity to exit... (use --detach to skip, Ctrl+C to terminate)");
+                    process.WaitForExit();
+                    Console.WriteLine($"Affinity exited with code {process.ExitCode}");
+                    return process.ExitCode;
+                }
+                
                 return 0;
             }
             catch (Exception ex)
