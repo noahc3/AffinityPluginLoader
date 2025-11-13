@@ -16,12 +16,18 @@ jobs:
       actions: read
     
     steps:
-      - name: Get PR number from head SHA
+      - name: Get PR number from branch
         id: pr
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_BRANCH: |-
+            ${{
+              (github.event.workflow_run.head_repository.owner.login != github.event.workflow_run.repository.owner.login)
+                && format('{0}:{1}', github.event.workflow_run.head_repository.owner.login, github.event.workflow_run.head_branch)
+                || github.event.workflow_run.head_branch
+            }}
         run: |
-          PR_NUMBER=$(gh pr view "${{ github.event.workflow_run.head_sha }}" --repo ${{ github.repository }} --json number --jq '.number')
+          PR_NUMBER=$(gh pr view "$PR_BRANCH" --repo ${{ github.repository }} --json number --jq '.number')
           echo "number=$PR_NUMBER" >> $GITHUB_OUTPUT
       
       - name: Get commit and run info
