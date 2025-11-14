@@ -41,6 +41,11 @@
                                                Margin="0,2,0,0">
                                         <Run Text="Author: "/><Run Text="{Binding Author}"/>
                                     </TextBlock>
+                                    <TextBlock Foreground="LightGray" 
+                                               FontSize="9" 
+                                               Margin="0,2,0,0">
+                                        <Run Text="{Binding Description}"/>
+                                    </TextBlock>
                                 </StackPanel>
                             </ControlTemplate>
                         </Setter.Value>

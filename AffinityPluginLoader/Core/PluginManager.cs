@@ -29,13 +29,15 @@ namespace AffinityPluginLoader.Core
             var loaderNameAttr = loaderAssembly.GetCustomAttribute<AssemblyTitleAttribute>();
             var loaderVersionAttr = loaderAssembly.GetCustomAttribute<AssemblyFileVersionAttribute>();
             var loaderCompanyAttr = loaderAssembly.GetCustomAttribute<AssemblyCompanyAttribute>();
+            var loaderDescAttr = loaderAssembly.GetCustomAttribute<AssemblyDescriptionAttribute>();
             
             var loaderInfo = new PluginInfo
             {
                 Name = loaderNameAttr?.Title ?? "AffinityPluginLoader",
                 Version = loaderVersionAttr?.Version ?? loaderAssembly.GetName().Version?.ToString() ?? "0.1.0.1",
                 Author = loaderCompanyAttr?.Company ?? "AffinityPluginLoader",
-                AssemblyName = loaderAssembly.FullName
+                AssemblyName = loaderAssembly.FullName,
+                Description = loaderDescAttr.Description
             };
             _loadedPlugins.Add(loaderInfo);
             FileLog.Log($"Added AffinityPluginLoader to plugin list: {loaderInfo.Name} v{loaderInfo.Version}\n");
@@ -101,13 +103,15 @@ namespace AffinityPluginLoader.Core
             var nameAttr = assembly.GetCustomAttribute<AssemblyTitleAttribute>();
             var versionAttr = assembly.GetCustomAttribute<AssemblyFileVersionAttribute>();
             var companyAttr = assembly.GetCustomAttribute<AssemblyCompanyAttribute>();
+            var descAttr = assembly.GetCustomAttribute<AssemblyDescriptionAttribute>();
 
             var pluginInfo = new PluginInfo
             {
                 Name = nameAttr?.Title ?? assembly.GetName().Name,
                 Version = versionAttr?.Version ?? assembly.GetName().Version?.ToString() ?? "1.0.0",
                 Author = companyAttr?.Company ?? "Unknown",
-                AssemblyName = assembly.FullName
+                AssemblyName = assembly.FullName,
+                Description = descAttr.Description ?? ""
             };
 
             // Look for IAffinityPlugin interface implementation
@@ -150,5 +154,6 @@ namespace AffinityPluginLoader.Core
         public string Version { get; set; }
         public string Author { get; set; }
         public string AssemblyName { get; set; }
+        public string Description { get; set; }
     }
 }
