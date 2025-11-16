@@ -52,10 +52,6 @@
     <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
   </PropertyGroup>
   <ItemGroup>
-    <Reference Include="0Harmony, Version=2.4.1.0, Culture=neutral, processorArchitecture=MSIL">
-      <HintPath>..\packages\Lib.Harmony.2.4.1\lib\net48\0Harmony.dll</HintPath>
-      <Private>True</Private>
-    </Reference>
     <Reference Include="Serif.Affinity">
       <HintPath>C:\Program Files\Affinity\Affinity\Serif.Affinity.dll</HintPath>
       <Private>False</Private>
@@ -84,10 +80,12 @@
     <Compile Include="UI\PluginsPreferencesPage.cs" />
   </ItemGroup>
   <ItemGroup>
-    <None Include="packages.config" />
+    <EmbeddedResource Include="UI\PluginsPreferencesPage.xaml" />
   </ItemGroup>
   <ItemGroup>
-    <EmbeddedResource Include="UI\PluginsPreferencesPage.xaml" />
+    <PackageReference Include="Lib.Harmony">
+      <Version>2.4.2</Version>
+    </PackageReference>
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
 </Project>
