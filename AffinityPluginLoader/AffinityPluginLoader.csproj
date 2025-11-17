@@ -28,4 +28,7 @@
     <Reference Include="System.Net.Http" />
     <Reference Include="System.Xml" />
   </ItemGroup>
+  <ItemGroup>
+    <EmbeddedResource Include="UI\PluginsPreferencesPage.xaml" />
+  </ItemGroup>
 </Project>
