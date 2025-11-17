@@ -1,178 +1,137 @@
-# AffinityPluginLoader Release Packager
-# Builds clean distribution packages from Release build output
+#!/usr/bin/env pwsh
+# Package release script for AffinityPluginLoader
+# Creates release archives for distribution
 
 param(
-    [string]$Version = "0.1.0.1",
-    [switch]$IncludeSymbols = $false
+    [switch]$SkipBuild
 )
 
 $ErrorActionPreference = "Stop"
 
-Write-Host "================================================" -ForegroundColor Cyan
-Write-Host " AffinityPluginLoader Release Packager" -ForegroundColor Cyan
-Write-Host " Version: $Version" -ForegroundColor Cyan
-Write-Host "================================================" -ForegroundColor Cyan
+Write-Host "========================================" -ForegroundColor Cyan
+Write-Host "AffinityPluginLoader Release Packaging" -ForegroundColor Cyan
+Write-Host "========================================" -ForegroundColor Cyan
 Write-Host
 
-# Paths
-$scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
-$affinityHookBin = Join-Path $scriptDir "AffinityHook\bin\x64\Release"
-$pluginLoaderBin = Join-Path $scriptDir "AffinityPluginLoader\bin\x64\Release"
-$wineFixBin = Join-Path $scriptDir "WineFix\bin\x64\Release"
-$bootstrapBin = Join-Path $scriptDir "AffinityBootstrap\bin\x64\Release"
+# Function to parse version from .csproj file
+function Get-ProjectVersion {
+    param([string]$csprojPath)
 
-# Verify build outputs exist
-Write-Host "Verifying build outputs..." -ForegroundColor Yellow
-if (-not (Test-Path $affinityHookBin)) {
-    Write-Error "AffinityHook Release build not found at: $affinityHookBin`nBuild the solution in x64 Release configuration first."
-    exit 1
+    [xml]$csproj = Get-Content $csprojPath
+    $version = $csproj.Project.PropertyGroup.Version | Where-Object { $_ } | Select-Object -First 1
+
+    if (-not $version) {
+        throw "Could not find Version in $csprojPath"
+    }
+
+    return $version
 }
 
-if (-not (Test-Path $pluginLoaderBin)) {
-    Write-Error "AffinityPluginLoader Release build not found at: $pluginLoaderBin`nBuild the solution in x64 Release configuration first."
-    exit 1
-}
-
-if (-not (Test-Path $bootstrapBin)) {
-    Write-Error "AffinityBootstrap Release build not found at: $bootstrapBin`nBuild AffinityBootstrap first."
-    exit 1
-}
-
-# ================================================
-# Package 1: AffinityPluginLoader
-# ================================================
-Write-Host
-Write-Host "================================================" -ForegroundColor Green
-Write-Host " Building AffinityPluginLoader Package" -ForegroundColor Green
-Write-Host "================================================" -ForegroundColor Green
-
-$loaderOutDir = Join-Path $scriptDir "affinitypluginloader-v$Version-x64"
-$loaderZipPath = Join-Path $scriptDir "affinitypluginloader-v$Version-x64.zip"
-
-# Clean output directory
-Write-Host "[1/4] Cleaning output directory..." -ForegroundColor Yellow
-if (Test-Path $loaderOutDir) {
-    Remove-Item $loaderOutDir -Recurse -Force
-}
-New-Item $loaderOutDir -ItemType Directory | Out-Null
-
-# Copy core files
-Write-Host "[2/4] Copying core files..." -ForegroundColor Yellow
-Copy-Item (Join-Path $affinityHookBin "AffinityHook.exe") $loaderOutDir
-Copy-Item (Join-Path $pluginLoaderBin "AffinityPluginLoader.dll") $loaderOutDir
-Copy-Item (Join-Path $pluginLoaderBin "0Harmony.dll") $loaderOutDir
-Copy-Item (Join-Path $bootstrapBin "AffinityBootstrap.dll") $loaderOutDir
-
-# Optional: Copy debug symbols
-if ($IncludeSymbols) {
-    Write-Host "    Including debug symbols..." -ForegroundColor Gray
-    Copy-Item (Join-Path $affinityHookBin "AffinityHook.pdb") $loaderOutDir -ErrorAction SilentlyContinue
-    Copy-Item (Join-Path $pluginLoaderBin "AffinityPluginLoader.pdb") $loaderOutDir -ErrorAction SilentlyContinue
-    Copy-Item (Join-Path $pluginLoaderBin "0Harmony.pdb") $loaderOutDir -ErrorAction SilentlyContinue
-}
-
-# Copy documentation
-Write-Host "[3/4] Copying documentation..." -ForegroundColor Yellow
-if (Test-Path (Join-Path $scriptDir "README.md")) {
-    Copy-Item (Join-Path $scriptDir "README.md") $loaderOutDir
-}
-if (Test-Path (Join-Path $scriptDir "LICENSE")) {
-    Copy-Item (Join-Path $scriptDir "LICENSE") $loaderOutDir
-}
-
-# Create ZIP archive
-Write-Host "[4/4] Creating ZIP archive..." -ForegroundColor Yellow
-if (Test-Path $loaderZipPath) {
-    Remove-Item $loaderZipPath -Force
-}
-Compress-Archive -Path "$loaderOutDir\*" -DestinationPath $loaderZipPath -CompressionLevel Optimal
-
-# Summary
-Write-Host
-Write-Host "AffinityPluginLoader Package Created!" -ForegroundColor Green
-Write-Host "Location: $loaderZipPath" -ForegroundColor White
-Write-Host
-Write-Host "Package Contents:" -ForegroundColor Cyan
-Get-ChildItem $loaderOutDir -File | ForEach-Object {
-    $size = "{0:N2} KB" -f ($_.Length / 1KB)
-    Write-Host "  $($_.Name)" -NoNewline -ForegroundColor Gray
-    Write-Host " ($size)" -ForegroundColor DarkGray
-}
-
-$loaderSize = (Get-ChildItem $loaderOutDir -File | Measure-Object -Property Length -Sum).Sum
-Write-Host
-Write-Host "Total Size: " -NoNewline
-Write-Host ("{0:N2} MB" -f ($loaderSize / 1MB)) -ForegroundColor Yellow
-
-# ================================================
-# Package 2: WineFix Plugin
-# ================================================
-Write-Host
-Write-Host "================================================" -ForegroundColor Green
-Write-Host " Building WineFix Plugin Package" -ForegroundColor Green
-Write-Host "================================================" -ForegroundColor Green
-
-if (-not (Test-Path $wineFixBin)) {
-    Write-Host "WARNING: WineFix not found at $wineFixBin" -ForegroundColor Yellow
-    Write-Host "Skipping WineFix package..." -ForegroundColor Yellow
+# Build everything if not skipping
+if (-not $SkipBuild) {
+    Write-Host "[1/4] Building all projects..." -ForegroundColor Yellow
+    & .\build.bat
+    if ($LASTEXITCODE -ne 0) {
+        throw "Build failed"
+    }
+    Write-Host
 } else {
-    $wineFixOutDir = Join-Path $scriptDir "winefix-v$Version-x64"
-    $wineFixZipPath = Join-Path $scriptDir "winefix-v$Version-x64.zip"
-
-    # Clean output directory
-    Write-Host "[1/3] Cleaning output directory..." -ForegroundColor Yellow
-    if (Test-Path $wineFixOutDir) {
-        Remove-Item $wineFixOutDir -Recurse -Force
-    }
-    New-Item $wineFixOutDir -ItemType Directory | Out-Null
-    New-Item (Join-Path $wineFixOutDir "plugins") -ItemType Directory | Out-Null
-
-    # Copy WineFix plugin
-    Write-Host "[2/3] Copying WineFix plugin..." -ForegroundColor Yellow
-    Copy-Item (Join-Path $wineFixBin "WineFix.dll") (Join-Path $wineFixOutDir "plugins\")
-    
-    if ($IncludeSymbols) {
-        Write-Host "    Including debug symbols..." -ForegroundColor Gray
-        Copy-Item (Join-Path $wineFixBin "WineFix.pdb") (Join-Path $wineFixOutDir "plugins\") -ErrorAction SilentlyContinue
-    }
-
-    # Create ZIP archive
-    Write-Host "[3/3] Creating ZIP archive..." -ForegroundColor Yellow
-    if (Test-Path $wineFixZipPath) {
-        Remove-Item $wineFixZipPath -Force
-    }
-    Compress-Archive -Path "$wineFixOutDir\*" -DestinationPath $wineFixZipPath -CompressionLevel Optimal
-
-    # Summary
+    Write-Host "[1/4] Skipping build (using existing binaries)..." -ForegroundColor Yellow
     Write-Host
-    Write-Host "WineFix Plugin Package Created!" -ForegroundColor Green
-    Write-Host "Location: $wineFixZipPath" -ForegroundColor White
-    Write-Host
-    Write-Host "Package Contents:" -ForegroundColor Cyan
-    Get-ChildItem $wineFixOutDir -Recurse -File | ForEach-Object {
-        $relativePath = $_.FullName.Substring($wineFixOutDir.Length + 1)
-        $size = "{0:N2} KB" -f ($_.Length / 1KB)
-        Write-Host "  $relativePath" -NoNewline -ForegroundColor Gray
-        Write-Host " ($size)" -ForegroundColor DarkGray
-    }
-
-    $wineFixSize = (Get-ChildItem $wineFixOutDir -Recurse -File | Measure-Object -Property Length -Sum).Sum
-    Write-Host
-    Write-Host "Total Size: " -NoNewline
-    Write-Host ("{0:N2} MB" -f ($wineFixSize / 1MB)) -ForegroundColor Yellow
 }
 
-# ================================================
-# Final Summary
-# ================================================
+# Parse versions
+$apl_version = Get-ProjectVersion "AffinityPluginLoader\AffinityPluginLoader.csproj"
+$winefix_version = Get-ProjectVersion "WineFix\WineFix.csproj"
+
+Write-Host "AffinityPluginLoader version: $apl_version" -ForegroundColor Green
+Write-Host "WineFix version: $winefix_version" -ForegroundColor Green
 Write-Host
-Write-Host "================================================" -ForegroundColor Cyan
-Write-Host " All Packages Created Successfully!" -ForegroundColor Cyan
-Write-Host "================================================" -ForegroundColor Cyan
-Write-Host
-Write-Host "Packages created:" -ForegroundColor White
-Write-Host "  1. $loaderZipPath" -ForegroundColor Green
-if (Test-Path $wineFixBin) {
-    Write-Host "  2. $wineFixZipPath" -ForegroundColor Green
+
+# Create output directory
+$output_dir = "releases"
+if (Test-Path $output_dir) {
+    Remove-Item $output_dir -Recurse -Force
 }
+New-Item -ItemType Directory -Path $output_dir | Out-Null
+
+# Package AffinityPluginLoader
+Write-Host "[2/4] Packaging affinitypluginloader-v$apl_version.zip..." -ForegroundColor Yellow
+$apl_temp = "releases\apl_temp"
+New-Item -ItemType Directory -Path $apl_temp | Out-Null
+
+# Copy files for AffinityPluginLoader package
+Copy-Item "AffinityPluginLoader\bin\Release\net48\win-x64\0Harmony.dll" $apl_temp
+Copy-Item "AffinityBootstrap\build\AffinityBootstrap.dll" $apl_temp
+Copy-Item "AffinityHook\bin\Release\net48\win-x64\AffinityHook.exe" $apl_temp
+Copy-Item "AffinityPluginLoader\bin\Release\net48\win-x64\AffinityPluginLoader.dll" $apl_temp
+Copy-Item "README.md" $apl_temp
+Copy-Item "AffinityPluginLoader\LICENSE" $apl_temp
+
+# Create zip
+Compress-Archive -Path "$apl_temp\*" -DestinationPath "releases\affinitypluginloader-v$apl_version.zip" -Force
+Remove-Item $apl_temp -Recurse -Force
+Write-Host "Created: releases\affinitypluginloader-v$apl_version.zip" -ForegroundColor Green
 Write-Host
+
+# Package WineFix
+Write-Host "[3/4] Packaging winefix-v$winefix_version.zip..." -ForegroundColor Yellow
+$winefix_temp = "releases\winefix_temp"
+New-Item -ItemType Directory -Path $winefix_temp | Out-Null
+New-Item -ItemType Directory -Path "$winefix_temp\plugins" | Out-Null
+
+# Copy files for WineFix package
+Copy-Item "README.md" $winefix_temp
+Copy-Item "WineFix\LICENSE" $winefix_temp
+Copy-Item "WineFix\bin\Release\net48\win-x64\WineFix.dll" "$winefix_temp\plugins\"
+
+# Create zip
+Compress-Archive -Path "$winefix_temp\*" -DestinationPath "releases\winefix-v$winefix_version.zip" -Force
+Remove-Item $winefix_temp -Recurse -Force
+Write-Host "Created: releases\winefix-v$winefix_version.zip" -ForegroundColor Green
+Write-Host
+
+# Package combined archive (tar.xz)
+Write-Host "[4/4] Packaging affinitypluginloader-plus-winefix.tar.xz..." -ForegroundColor Yellow
+$combined_temp = "releases\combined_temp"
+New-Item -ItemType Directory -Path $combined_temp | Out-Null
+New-Item -ItemType Directory -Path "$combined_temp\plugins" | Out-Null
+
+# Copy files for combined package
+Copy-Item "AffinityPluginLoader\bin\Release\net48\win-x64\0Harmony.dll" $combined_temp
+Copy-Item "AffinityBootstrap\build\AffinityBootstrap.dll" $combined_temp
+Copy-Item "AffinityHook\bin\Release\net48\win-x64\AffinityHook.exe" $combined_temp
+Copy-Item "AffinityPluginLoader\bin\Release\net48\win-x64\AffinityPluginLoader.dll" $combined_temp
+Copy-Item "WineFix\bin\Release\net48\win-x64\WineFix.dll" "$combined_temp\plugins\"
+
+# Create tar.xz (requires tar command, available in Windows 10+)
+$tar_path = "releases\affinitypluginloader-plus-winefix.tar"
+$xz_path = "releases\affinitypluginloader-plus-winefix.tar.xz"
+
+Push-Location $combined_temp
+tar -cf "..\affinitypluginloader-plus-winefix.tar" *
+Pop-Location
+
+# Try to compress with xz if available, otherwise use 7z, otherwise just keep as tar
+$compressed = $false
+if (Get-Command xz -ErrorAction SilentlyContinue) {
+    xz -z $tar_path
+    $compressed = $true
+    Write-Host "Created: releases\affinitypluginloader-plus-winefix.tar.xz (xz)" -ForegroundColor Green
+} elseif (Get-Command 7z -ErrorAction SilentlyContinue) {
+    7z a -txz $xz_path $tar_path | Out-Null
+    Remove-Item $tar_path
+    $compressed = $true
+    Write-Host "Created: releases\affinitypluginloader-plus-winefix.tar.xz (7z)" -ForegroundColor Green
+} else {
+    Write-Host "Warning: xz and 7z not found, keeping as .tar file" -ForegroundColor Yellow
+    Write-Host "Created: releases\affinitypluginloader-plus-winefix.tar" -ForegroundColor Green
+}
+
+Remove-Item $combined_temp -Recurse -Force
+Write-Host
+
+Write-Host "========================================" -ForegroundColor Cyan
+Write-Host "Release packaging completed!" -ForegroundColor Cyan
+Write-Host "========================================" -ForegroundColor Cyan
+Write-Host "Output directory: releases\" -ForegroundColor Green
