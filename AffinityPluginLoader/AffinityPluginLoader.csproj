@@ -52,7 +52,7 @@
     <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
   </PropertyGroup>
   <ItemGroup>
-    <Reference Include="Serif.Affinity">
+    <Reference Include="Serif.Affinity" Condition="Exists('C:\Program Files\Affinity\Affinity\Serif.Affinity.dll')">
       <HintPath>C:\Program Files\Affinity\Affinity\Serif.Affinity.dll</HintPath>
       <Private>False</Private>
     </Reference>
@@ -88,4 +88,5 @@
     </PackageReference>
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
+  <Import Project="$(MSBuildExtensionsPath)\Microsoft\NuGet\17.0\Microsoft.NuGet.targets" Condition="Exists('$(MSBuildExtensionsPath)\Microsoft\NuGet\17.0\Microsoft.NuGet.targets')" />
 </Project>
