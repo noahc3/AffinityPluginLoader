@@ -1,0 +1,34 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.0.31903.59
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AffinityHook", "AffinityHook\AffinityHook.csproj", "{FCBB77CF-719C-4A39-BD2E-498F5BFFCF2B}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AffinityPluginLoader", "AffinityPluginLoader\AffinityPluginLoader.csproj", "{0B4B2B01-D160-40EE-A9AC-9594470DDBC3}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "WineFix", "WineFix\WineFix.csproj", "{A9134DEC-BC99-468E-ADE6-8DAC9883F11E}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|x64 = Debug|x64
+		Release|x64 = Release|x64
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{FCBB77CF-719C-4A39-BD2E-498F5BFFCF2B}.Debug|x64.ActiveCfg = Debug|x64
+		{FCBB77CF-719C-4A39-BD2E-498F5BFFCF2B}.Debug|x64.Build.0 = Debug|x64
+		{FCBB77CF-719C-4A39-BD2E-498F5BFFCF2B}.Release|x64.ActiveCfg = Release|x64
+		{FCBB77CF-719C-4A39-BD2E-498F5BFFCF2B}.Release|x64.Build.0 = Release|x64
+		{0B4B2B01-D160-40EE-A9AC-9594470DDBC3}.Debug|x64.ActiveCfg = Debug|x64
+		{0B4B2B01-D160-40EE-A9AC-9594470DDBC3}.Debug|x64.Build.0 = Debug|x64
+		{0B4B2B01-D160-40EE-A9AC-9594470DDBC3}.Release|x64.ActiveCfg = Release|x64
+		{0B4B2B01-D160-40EE-A9AC-9594470DDBC3}.Release|x64.Build.0 = Release|x64
+		{A9134DEC-BC99-468E-ADE6-8DAC9883F11E}.Debug|x64.ActiveCfg = Debug|x64
+		{A9134DEC-BC99-468E-ADE6-8DAC9883F11E}.Debug|x64.Build.0 = Debug|x64
+		{A9134DEC-BC99-468E-ADE6-8DAC9883F11E}.Release|x64.ActiveCfg = Release|x64
+		{A9134DEC-BC99-468E-ADE6-8DAC9883F11E}.Release|x64.Build.0 = Release|x64
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+EndGlobal

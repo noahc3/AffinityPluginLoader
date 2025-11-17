@@ -11,8 +11,13 @@
  */
 
 #define _WIN32_WINNT 0x0600
+
+// Define INITGUID before including headers to create GUID definitions
+#define INITGUID
+
 #include <windows.h>
 #include <stdio.h>
+#include <initguid.h>
 
 // COM interfaces for .NET hosting
 #include <metahost.h>  // This has ICLRMetaHost, ICLRRuntimeInfo, etc.
