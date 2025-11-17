@@ -1,8 +1,11 @@
 #!/bin/bash
 # Master build script for AffinityPluginLoader
 # Builds both .NET assemblies and native AffinityBootstrap.dll
-
 set -e
+
+ROOTDIR=$(dirname "$(readlink -f "$0")")
+
+pushd "$ROOTDIR"
 
 echo "========================================"
 echo "Building AffinityPluginLoader"
@@ -24,3 +27,5 @@ echo
 echo "========================================"
 echo "Build completed successfully!"
 echo "========================================"
+
+popd

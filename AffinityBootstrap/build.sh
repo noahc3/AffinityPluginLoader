@@ -3,6 +3,10 @@
 
 set -e
 
+ROOTDIR=$(dirname "$(readlink -f "$0")")
+
+pushd "$ROOTDIR"
+
 cd "$(dirname "$0")"
 
 # Create build directory
@@ -31,3 +35,5 @@ else
     echo "Build failed"
     exit 1
 fi
+
+popd
