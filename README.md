@@ -14,7 +14,7 @@ APL supports Windows and Linux (Wine). MacOS support is not planned at this time
 
 ## Install
 
-1. Download `affinitypluginloader-vX.X.X.X-amd64.zip` from the [latest release](https://github.com/noahc3/AffinityPluginLoader/releases).
+1. Download `affinitypluginloader-vX.X.X-amd64.zip` from the [latest release](https://github.com/noahc3/AffinityPluginLoader/releases).
 2. Extract the contents of the archive into your Affinity install directory
   - This is `C:/Program Files/Affinity/Affinity/` by default on Windows, or
     `path/to/wineprefix/drive_c/Program Files/Affinity/Affinity/` on Linux.
