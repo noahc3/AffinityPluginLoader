@@ -33,12 +33,14 @@ As such it's recommended you update your existing shortcuts or create new shortc
 
 ## Developing Plugins
 
-A better guide will be written up soon. For now you should reference the source code of WineFix for how
-to get the basic plugin structure going and how you can patch code using IL transpilation. Also take a look the
-source code of Affinity Plugin Loader for an example of how to inject custom UI and XAML.
+A better guide will be written up soon. For now you should reference the source code of WineFix for how to get the basic plugin structure going and how you can patch code using IL transpilation. Also take a look the source code of Affinity Plugin Loader for an example of how to inject custom UI and XAML.
+
+Build scripts are provided for Windows and Linux.
 
 > [!TIP]
-> Developing on Linux? You may want to use [apl-devcontainer](https://github.com/noahc3/apl-devcontainer) to get a working build environment. Feel free to take a look at the Dockerfile to get an idea of what you'll need on your host system to build without Docker.
+> Developing on Linux? You may want to use [apl-devcontainer](https://github.com/noahc3/apl-devcontainer) to get a working build environment. Feel free to take a look at the Dockerfile to get an idea of what you'll need on your host system to build without Docker. 
+
+> APL fully supports building on Linux via mingw-w64 and the dotnet SDK, you'll just need to grab a Windows SDK header and library from Wine.
 
 
 ## Licensing
