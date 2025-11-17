@@ -14,7 +14,7 @@ As of now WineFix fixes the following bugs:
 - Fixed: Preferences not saving on Linux
 
 > [!WARNING]
-> Warning: WineFix currently patches out the Canva sign-in dialog prompt when launching Affinity. This is temporary and the sign-in dialog prompt will be restored as soon as we have a known consistent way to fix the sign-in browser redirect and Affinity protocol handler.
+> WineFix currently patches out the Canva sign-in dialog prompt when launching Affinity. This is temporary and the sign-in dialog prompt will be restored as soon as we have a known consistent way to fix the sign-in browser redirect and Affinity protocol handler.
 
 More fixes are planned. We are currently researching potential solutions for the following bugs:
 
@@ -25,7 +25,7 @@ We are open to resolving any Wine-specific bugs. Feel free to open an issue requ
 particular bug you encounter. Just please keep in mind these bugs take time to research and develop patches for,
 especially if the bug needs to be patched in native code.
 
-## License
+## Licensing
 
 WineFix is licensed under the terms of the GPLv2 except for the exemption noted below. You can find a copy of the license in the LICENSE file.
 

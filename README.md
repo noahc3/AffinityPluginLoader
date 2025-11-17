@@ -1,6 +1,8 @@
 # Affinity Plugin Loader
 
-*Information on WineFix has moved, see [WineFix/README.md](WineFix)*
+> [!INFO]
+> *Information on WineFix has moved, see [WineFix/](WineFix#winefix)*
+
 
 A managed code plugin loader & injector hook for Affinity by Canva (Affinity v3).
 
