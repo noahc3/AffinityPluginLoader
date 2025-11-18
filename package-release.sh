@@ -5,13 +5,29 @@
 set -e
 
 SKIP_BUILD=false
-if [ "$1" = "--skip-build" ]; then
-    SKIP_BUILD=true
-fi
+CONFIGURATION="Release"
+
+# Parse arguments
+for arg in "$@"; do
+    case $arg in
+        --skip-build)
+            SKIP_BUILD=true
+            ;;
+        --debug)
+            CONFIGURATION="Debug"
+            ;;
+        *)
+            echo "Unknown argument: $arg"
+            echo "Usage: $0 [--skip-build] [--debug]"
+            exit 1
+            ;;
+    esac
+done
 
 echo "========================================"
 echo "AffinityPluginLoader Release Packaging"
 echo "========================================"
+echo "Configuration: $CONFIGURATION"
 echo
 
 # Function to parse version from .csproj file
@@ -30,7 +46,11 @@ get_project_version() {
 # Build everything if not skipping
 if [ "$SKIP_BUILD" = false ]; then
     echo "[1/4] Building all projects..."
-    bash build.sh
+    if [ "$CONFIGURATION" = "Debug" ]; then
+        bash build.sh Debug
+    else
+        bash build.sh
+    fi
     echo
 else
     echo "[1/4] Skipping build (using existing binaries)..."
@@ -58,10 +78,10 @@ APL_TEMP="$OUTPUT_DIR/apl_temp"
 mkdir -p "$APL_TEMP"
 
 # Copy files for AffinityPluginLoader package
-cp "AffinityPluginLoader/bin/x64/Release/net48/win-x64/0Harmony.dll" "$APL_TEMP/"
+cp "AffinityPluginLoader/bin/x64/$CONFIGURATION/net48/win-x64/0Harmony.dll" "$APL_TEMP/"
 cp "AffinityBootstrap/build/AffinityBootstrap.dll" "$APL_TEMP/"
-cp "AffinityHook/bin/x64/Release/net48/win-x64/AffinityHook.exe" "$APL_TEMP/"
-cp "AffinityPluginLoader/bin/x64/Release/net48/win-x64/AffinityPluginLoader.dll" "$APL_TEMP/"
+cp "AffinityHook/bin/x64/$CONFIGURATION/net48/win-x64/AffinityHook.exe" "$APL_TEMP/"
+cp "AffinityPluginLoader/bin/x64/$CONFIGURATION/net48/win-x64/AffinityPluginLoader.dll" "$APL_TEMP/"
 cp "README.md" "$APL_TEMP/"
 cp "AffinityPluginLoader/LICENSE" "$APL_TEMP/"
 
@@ -79,7 +99,7 @@ mkdir -p "$WINEFIX_TEMP/plugins"
 # Copy files for WineFix package
 cp "README.md" "$WINEFIX_TEMP/"
 cp "WineFix/LICENSE" "$WINEFIX_TEMP/"
-cp "WineFix/bin/x64/Release/net48/win-x64/WineFix.dll" "$WINEFIX_TEMP/plugins/"
+cp "WineFix/bin/x64/$CONFIGURATION/net48/win-x64/WineFix.dll" "$WINEFIX_TEMP/plugins/"
 
 # Create zip
 (cd "$WINEFIX_TEMP" && zip -q -r "../winefix-v$WINEFIX_VERSION.zip" *)
@@ -93,11 +113,11 @@ COMBINED_TEMP="$OUTPUT_DIR/combined_temp"
 mkdir -p "$COMBINED_TEMP/plugins"
 
 # Copy files for combined package
-cp "AffinityPluginLoader/bin/x64/Release/net48/win-x64/0Harmony.dll" "$COMBINED_TEMP/"
+cp "AffinityPluginLoader/bin/x64/$CONFIGURATION/net48/win-x64/0Harmony.dll" "$COMBINED_TEMP/"
 cp "AffinityBootstrap/build/AffinityBootstrap.dll" "$COMBINED_TEMP/"
-cp "AffinityHook/bin/x64/Release/net48/win-x64/AffinityHook.exe" "$COMBINED_TEMP/"
-cp "AffinityPluginLoader/bin/x64/Release/net48/win-x64/AffinityPluginLoader.dll" "$COMBINED_TEMP/"
-cp "WineFix/bin/x64/Release/net48/win-x64/WineFix.dll" "$COMBINED_TEMP/plugins/"
+cp "AffinityHook/bin/x64/$CONFIGURATION/net48/win-x64/AffinityHook.exe" "$COMBINED_TEMP/"
+cp "AffinityPluginLoader/bin/x64/$CONFIGURATION/net48/win-x64/AffinityPluginLoader.dll" "$COMBINED_TEMP/"
+cp "WineFix/bin/x64/$CONFIGURATION/net48/win-x64/WineFix.dll" "$COMBINED_TEMP/plugins/"
 
 # Create tar.xz
 tar -C "$COMBINED_TEMP" -cJf "$OUTPUT_DIR/affinitypluginloader-plus-winefix.tar.xz" .

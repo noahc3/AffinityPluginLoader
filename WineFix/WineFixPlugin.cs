@@ -1,5 +1,6 @@
 using System;
 using HarmonyLib;
+using AffinityPluginLoader.Core;
 
 namespace WineFix
 {
@@ -12,16 +13,16 @@ namespace WineFix
         {
             try
             {
-                FileLog.Log($"WineFix plugin initializing...\n");
-                
+                Logger.Info($"WineFix plugin initializing...");
+
                 // Apply Wine compatibility patches
                 Patches.MainWindowLoadedPatch.ApplyPatches(harmony);
-                
-                FileLog.Log($"WineFix plugin initialized successfully\n");
+
+                Logger.Info($"WineFix plugin initialized successfully");
             }
             catch (Exception ex)
             {
-                FileLog.Log($"Error initializing WineFix: {ex.Message}\n{ex.StackTrace}\n");
+                Logger.Error("Error initializing WineFix", ex);
             }
         }
     }

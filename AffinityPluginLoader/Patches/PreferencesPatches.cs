@@ -2,6 +2,7 @@ using System;
 using System.Linq;
 using System.Reflection;
 using HarmonyLib;
+using AffinityPluginLoader.Core;
 using AffinityPluginLoader.UI;
 
 namespace AffinityPluginLoader.Patches
@@ -15,23 +16,23 @@ namespace AffinityPluginLoader.Patches
         {
             try
             {
-                FileLog.Log($"Applying PreferencesDialog patches\n");
-                
+                Logger.Info($"Applying PreferencesDialog patches");
+
                 // Find the Serif.Affinity assembly
                 var serifAssembly = AppDomain.CurrentDomain.GetAssemblies()
                     .FirstOrDefault(a => a.GetName().Name == "Serif.Affinity");
-                
+
                 if (serifAssembly == null)
                 {
-                    FileLog.Log($"ERROR: Serif.Affinity assembly not found for preferences patch\n");
+                    Logger.Error($"ERROR: Serif.Affinity assembly not found for preferences patch");
                     return;
                 }
-                
+
                 // Get the PreferencesDialog type
                 var preferencesDialogType = serifAssembly.GetType("Serif.Affinity.UI.Dialogs.Preferences.PreferencesDialog");
                 if (preferencesDialogType == null)
                 {
-                    FileLog.Log($"ERROR: PreferencesDialog type not found\n");
+                    Logger.Error($"ERROR: PreferencesDialog type not found");
                     return;
                 }
                 
@@ -44,19 +45,19 @@ namespace AffinityPluginLoader.Patches
                 
                 if (constructor != null)
                 {
-                    FileLog.Log($"Found PreferencesDialog constructor\n");
+                    Logger.Info($"Found PreferencesDialog constructor");
                     var postfix = typeof(PreferencesPatches).GetMethod(nameof(PreferencesDialog_Constructor_Postfix), BindingFlags.Static | BindingFlags.Public);
                     harmony.Patch(constructor, postfix: new HarmonyMethod(postfix));
-                    FileLog.Log($"Patched PreferencesDialog constructor\n");
+                    Logger.Info($"Patched PreferencesDialog constructor");
                 }
                 else
                 {
-                    FileLog.Log($"ERROR: PreferencesDialog constructor not found\n");
+                    Logger.Error($"ERROR: PreferencesDialog constructor not found");
                 }
             }
             catch (Exception ex)
             {
-                FileLog.Log($"Failed to apply preferences patches: {ex.Message}\n{ex.StackTrace}\n");
+                Logger.Error("Failed to apply preferences patches", ex);
             }
         }
 
@@ -65,22 +66,22 @@ namespace AffinityPluginLoader.Patches
         {
             try
             {
-                FileLog.Log($"PreferencesDialog constructor postfix called\n");
-                
+                Logger.Debug($"PreferencesDialog constructor postfix called");
+
                 // Get the type of the dialog
                 var dialogType = __instance.GetType();
-                
+
                 // Find the property that holds the pages (it's called "Pages")
                 var pagesProperty = dialogType.GetProperty("Pages", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
-                
+
                 if (pagesProperty != null)
                 {
                     var pages = pagesProperty.GetValue(__instance);
                     if (pages is System.Collections.IList pageList)
                     {
-                        FileLog.Log($"Found Pages property with {pageList.Count} existing pages\n");
+                        Logger.Debug($"Found Pages property with {pageList.Count} existing pages");
                         
-                        // Add a separator before the AffinityPluginLoader tab
+                        // Add a separator before the Affinity Plugin Loader tab
                         var serifAssembly = AppDomain.CurrentDomain.GetAssemblies()
                             .FirstOrDefault(a => a.GetName().Name == "Serif.Affinity");
                         
@@ -97,13 +98,13 @@ namespace AffinityPluginLoader.Patches
                                 {
                                     indexProperty.SetValue(separator, pageList.Count);
                                 }
-                                
+
                                 pageList.Add(separator);
-                                FileLog.Log($"Added separator to preferences dialog\n");
+                                Logger.Debug($"Added separator to preferences dialog");
                             }
                             else
                             {
-                                FileLog.Log($"PreferencesPageSeparator type not found, skipping separator\n");
+                                Logger.Debug($"PreferencesPageSeparator type not found, skipping separator");
                             }
                         }
                         
@@ -118,24 +119,24 @@ namespace AffinityPluginLoader.Patches
                             {
                                 indexProperty.SetValue(pluginsPage, pageList.Count);
                             }
-                            
+
                             pageList.Add(pluginsPage);
-                            FileLog.Log($"Added AffinityPluginLoader tab to preferences dialog\n");
+                            Logger.Info($"Added Affinity Plugin Loader tab to preferences dialog");
                         }
                     }
                     else
                     {
-                        FileLog.Log($"Pages property is not IList: {pages?.GetType()?.FullName}\n");
+                        Logger.Debug($"Pages property is not IList: {pages?.GetType()?.FullName}");
                     }
                 }
                 else
                 {
-                    FileLog.Log($"Could not find Pages property in PreferencesDialog\n");
+                    Logger.Debug($"Could not find Pages property in PreferencesDialog");
                 }
             }
             catch (Exception ex)
             {
-                FileLog.Log($"Error in PreferencesDialog postfix: {ex.Message}\n{ex.StackTrace}\n");
+                Logger.Error("Error in PreferencesDialog postfix", ex);
             }
         }
     }

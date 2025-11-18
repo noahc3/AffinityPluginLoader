@@ -8,9 +8,11 @@
     <PlatformTarget>x64</PlatformTarget>
   </PropertyGroup>
   <PropertyGroup>
-    <Title>AffinityHook</Title>
+    <Product>AffinityHook</Product>
     <Description>Launch wrapper to hook Affinity and inject AffinityBootstrap</Description>
     <Version>0.2.0</Version>
-    <Authors>Noah Curoe &amp; AffinityHook Contributors</Authors>
+    <Company>Noah Curoe &amp; AffinityHook Contributors</Company>
+    <!-- Disable git hash in Release builds -->
+    <IncludeSourceRevisionInInformationalVersion Condition="'$(Configuration)' == 'Release'">false</IncludeSourceRevisionInInformationalVersion>
   </PropertyGroup>
 </Project>

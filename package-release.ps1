@@ -3,14 +3,18 @@
 # Creates release archives for distribution
 
 param(
-    [switch]$SkipBuild
+    [switch]$SkipBuild,
+    [switch]$Debug
 )
 
 $ErrorActionPreference = "Stop"
 
+$Configuration = if ($Debug) { "Debug" } else { "Release" }
+
 Write-Host "========================================" -ForegroundColor Cyan
 Write-Host "AffinityPluginLoader Release Packaging" -ForegroundColor Cyan
 Write-Host "========================================" -ForegroundColor Cyan
+Write-Host "Configuration: $Configuration" -ForegroundColor Green
 Write-Host
 
 # Function to parse version from .csproj file
@@ -30,7 +34,11 @@ function Get-ProjectVersion {
 # Build everything if not skipping
 if (-not $SkipBuild) {
     Write-Host "[1/4] Building all projects..." -ForegroundColor Yellow
-    & .\build.bat
+    if ($Debug) {
+        & .\build.bat Debug
+    } else {
+        & .\build.bat
+    }
     if ($LASTEXITCODE -ne 0) {
         throw "Build failed"
     }
@@ -61,10 +69,10 @@ $apl_temp = "releases\apl_temp"
 New-Item -ItemType Directory -Path $apl_temp | Out-Null
 
 # Copy files for AffinityPluginLoader package
-Copy-Item "AffinityPluginLoader\bin\Release\net48\win-x64\0Harmony.dll" $apl_temp
+Copy-Item "AffinityPluginLoader\bin\$Configuration\net48\win-x64\0Harmony.dll" $apl_temp
 Copy-Item "AffinityBootstrap\build\AffinityBootstrap.dll" $apl_temp
-Copy-Item "AffinityHook\bin\Release\net48\win-x64\AffinityHook.exe" $apl_temp
-Copy-Item "AffinityPluginLoader\bin\Release\net48\win-x64\AffinityPluginLoader.dll" $apl_temp
+Copy-Item "AffinityHook\bin\$Configuration\net48\win-x64\AffinityHook.exe" $apl_temp
+Copy-Item "AffinityPluginLoader\bin\$Configuration\net48\win-x64\AffinityPluginLoader.dll" $apl_temp
 Copy-Item "README.md" $apl_temp
 Copy-Item "AffinityPluginLoader\LICENSE" $apl_temp
 
@@ -83,7 +91,7 @@ New-Item -ItemType Directory -Path "$winefix_temp\plugins" | Out-Null
 # Copy files for WineFix package
 Copy-Item "README.md" $winefix_temp
 Copy-Item "WineFix\LICENSE" $winefix_temp
-Copy-Item "WineFix\bin\Release\net48\win-x64\WineFix.dll" "$winefix_temp\plugins\"
+Copy-Item "WineFix\bin\$Configuration\net48\win-x64\WineFix.dll" "$winefix_temp\plugins\"
 
 # Create zip
 Compress-Archive -Path "$winefix_temp\*" -DestinationPath "releases\winefix-v$winefix_version.zip" -Force
@@ -98,11 +106,11 @@ New-Item -ItemType Directory -Path $combined_temp | Out-Null
 New-Item -ItemType Directory -Path "$combined_temp\plugins" | Out-Null
 
 # Copy files for combined package
-Copy-Item "AffinityPluginLoader\bin\Release\net48\win-x64\0Harmony.dll" $combined_temp
+Copy-Item "AffinityPluginLoader\bin\$Configuration\net48\win-x64\0Harmony.dll" $combined_temp
 Copy-Item "AffinityBootstrap\build\AffinityBootstrap.dll" $combined_temp
-Copy-Item "AffinityHook\bin\Release\net48\win-x64\AffinityHook.exe" $combined_temp
-Copy-Item "AffinityPluginLoader\bin\Release\net48\win-x64\AffinityPluginLoader.dll" $combined_temp
-Copy-Item "WineFix\bin\Release\net48\win-x64\WineFix.dll" "$combined_temp\plugins\"
+Copy-Item "AffinityHook\bin\$Configuration\net48\win-x64\AffinityHook.exe" $combined_temp
+Copy-Item "AffinityPluginLoader\bin\$Configuration\net48\win-x64\AffinityPluginLoader.dll" $combined_temp
+Copy-Item "WineFix\bin\$Configuration\net48\win-x64\WineFix.dll" "$combined_temp\plugins\"
 
 # Create tar.xz (requires tar command, available in Windows 10+)
 $tar_path = "releases\affinitypluginloader-plus-winefix.tar"
