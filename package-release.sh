@@ -58,10 +58,10 @@ APL_TEMP="$OUTPUT_DIR/apl_temp"
 mkdir -p "$APL_TEMP"
 
 # Copy files for AffinityPluginLoader package
-cp "AffinityPluginLoader/bin/Release/net48/win-x64/0Harmony.dll" "$APL_TEMP/"
+cp "AffinityPluginLoader/bin/x64/Release/net48/win-x64/0Harmony.dll" "$APL_TEMP/"
 cp "AffinityBootstrap/build/AffinityBootstrap.dll" "$APL_TEMP/"
-cp "AffinityHook/bin/Release/net48/win-x64/AffinityHook.exe" "$APL_TEMP/"
-cp "AffinityPluginLoader/bin/Release/net48/win-x64/AffinityPluginLoader.dll" "$APL_TEMP/"
+cp "AffinityHook/bin/x64/Release/net48/win-x64/AffinityHook.exe" "$APL_TEMP/"
+cp "AffinityPluginLoader/bin/x64/Release/net48/win-x64/AffinityPluginLoader.dll" "$APL_TEMP/"
 cp "README.md" "$APL_TEMP/"
 cp "AffinityPluginLoader/LICENSE" "$APL_TEMP/"
 
@@ -79,7 +79,7 @@ mkdir -p "$WINEFIX_TEMP/plugins"
 # Copy files for WineFix package
 cp "README.md" "$WINEFIX_TEMP/"
 cp "WineFix/LICENSE" "$WINEFIX_TEMP/"
-cp "WineFix/bin/Release/net48/win-x64/WineFix.dll" "$WINEFIX_TEMP/plugins/"
+cp "WineFix/bin/x64/Release/net48/win-x64/WineFix.dll" "$WINEFIX_TEMP/plugins/"
 
 # Create zip
 (cd "$WINEFIX_TEMP" && zip -q -r "../winefix-v$WINEFIX_VERSION.zip" *)
@@ -93,11 +93,11 @@ COMBINED_TEMP="$OUTPUT_DIR/combined_temp"
 mkdir -p "$COMBINED_TEMP/plugins"
 
 # Copy files for combined package
-cp "AffinityPluginLoader/bin/Release/net48/win-x64/0Harmony.dll" "$COMBINED_TEMP/"
+cp "AffinityPluginLoader/bin/x64/Release/net48/win-x64/0Harmony.dll" "$COMBINED_TEMP/"
 cp "AffinityBootstrap/build/AffinityBootstrap.dll" "$COMBINED_TEMP/"
-cp "AffinityHook/bin/Release/net48/win-x64/AffinityHook.exe" "$COMBINED_TEMP/"
-cp "AffinityPluginLoader/bin/Release/net48/win-x64/AffinityPluginLoader.dll" "$COMBINED_TEMP/"
-cp "WineFix/bin/Release/net48/win-x64/WineFix.dll" "$COMBINED_TEMP/plugins/"
+cp "AffinityHook/bin/x64/Release/net48/win-x64/AffinityHook.exe" "$COMBINED_TEMP/"
+cp "AffinityPluginLoader/bin/x64/Release/net48/win-x64/AffinityPluginLoader.dll" "$COMBINED_TEMP/"
+cp "WineFix/bin/x64/Release/net48/win-x64/WineFix.dll" "$COMBINED_TEMP/plugins/"
 
 # Create tar.xz
 tar -C "$COMBINED_TEMP" -cJf "$OUTPUT_DIR/affinitypluginloader-plus-winefix.tar.xz" .
