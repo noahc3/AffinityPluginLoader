@@ -13,12 +13,15 @@ namespace AffinityPluginLoader.Patches
     {
         private static Harmony _harmony;
         private static bool _patchesApplied = false;
+        private static string _assemblyVersion = "";
 
-        public static void ApplyPatches(Harmony harmony)
+        public static void ApplyPatches(Harmony harmony, PluginInfo plugin)
         {
             _harmony = harmony;
 
-            Logger.Info($"Applying AffinityPluginLoader patches...");
+            Logger.Info($"Applying Affinity Plugin Loader patches...");
+
+            _assemblyVersion = plugin.Version ?? "not found";
 
             // Apply version string patches
             ApplyVersionPatches();
@@ -75,8 +78,7 @@ namespace AffinityPluginLoader.Patches
         // Postfix for GetCurrentVerboseVersionString (splash screen)
         public static void GetVerboseVersionString_Postfix(ref string __result)
         {
-            var version = Assembly.GetExecutingAssembly().GetName().Version;
-            __result = __result + $" (AffinityPluginLoader {version})";
+            __result = __result + $" (APL {_assemblyVersion})";
         }
     }
 }

@@ -47,7 +47,7 @@ namespace AffinityPluginLoader
             // Initialize logger first
             Logger.Initialize();
 
-            Logger.Info($"AffinityPluginLoader initializing... {DateTime.UtcNow}");
+            Logger.Info($"APL initializing... {DateTime.UtcNow}");
             Logger.Debug($"Current AppDomain: {AppDomain.CurrentDomain.FriendlyName}");
             
             try
@@ -67,7 +67,7 @@ namespace AffinityPluginLoader
                         patcherType.FullName);
 
                     patcher.Initialize();
-                    Logger.Info($"AffinityPluginLoader initialized in default AppDomain");
+                    Logger.Info($"APL initialized in default AppDomain");
                 }
                 else
                 {

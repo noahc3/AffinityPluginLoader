@@ -81,7 +81,7 @@ namespace AffinityPluginLoader.Patches
                     {
                         Logger.Debug($"Found Pages property with {pageList.Count} existing pages");
                         
-                        // Add a separator before the AffinityPluginLoader tab
+                        // Add a separator before the Affinity Plugin Loader tab
                         var serifAssembly = AppDomain.CurrentDomain.GetAssemblies()
                             .FirstOrDefault(a => a.GetName().Name == "Serif.Affinity");
                         
@@ -121,7 +121,7 @@ namespace AffinityPluginLoader.Patches
                             }
 
                             pageList.Add(pluginsPage);
-                            Logger.Info($"Added AffinityPluginLoader tab to preferences dialog");
+                            Logger.Info($"Added Affinity Plugin Loader tab to preferences dialog");
                         }
                     }
                     else

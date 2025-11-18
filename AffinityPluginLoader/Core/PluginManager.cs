@@ -24,26 +24,26 @@ namespace AffinityPluginLoader.Core
 
             Logger.Info($"PluginManager initializing...");
 
-            // Add AffinityPluginLoader itself as the first plugin
+            // Add APL itself as the first plugin
             var loaderAssembly = Assembly.GetExecutingAssembly();
-            var loaderNameAttr = loaderAssembly.GetCustomAttribute<AssemblyTitleAttribute>();
-            var loaderVersionAttr = loaderAssembly.GetCustomAttribute<AssemblyFileVersionAttribute>();
+            var loaderProductAttr = loaderAssembly.GetCustomAttribute<AssemblyProductAttribute>();
+            var loaderVersionAttr = loaderAssembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>();
             var loaderCompanyAttr = loaderAssembly.GetCustomAttribute<AssemblyCompanyAttribute>();
             var loaderDescAttr = loaderAssembly.GetCustomAttribute<AssemblyDescriptionAttribute>();
-            
+
             var loaderInfo = new PluginInfo
             {
-                Name = loaderNameAttr?.Title ?? "AffinityPluginLoader",
-                Version = loaderVersionAttr?.Version ?? loaderAssembly.GetName().Version?.ToString() ?? "0.1.0.1",
-                Author = loaderCompanyAttr?.Company ?? "AffinityPluginLoader",
+                Name = loaderProductAttr?.Product ?? loaderAssembly.GetName().Name,
+                Version = FormatVersion(loaderVersionAttr?.InformationalVersion, loaderAssembly.GetName().Version),
+                Author = loaderCompanyAttr?.Company ?? "Unknown",
                 AssemblyName = loaderAssembly.FullName,
-                Description = loaderDescAttr.Description
+                Description = loaderDescAttr?.Description ?? ""
             };
             _loadedPlugins.Add(loaderInfo);
-            Logger.Info($"Added AffinityPluginLoader to plugin list: {loaderInfo.Name} v{loaderInfo.Version}");
+            Logger.Info($"Added APL to plugin list: {loaderInfo.Name} v{loaderInfo.Version}");
 
             // Apply loader's own patches (version strings, preferences tab)
-            Patches.LoaderPatches.ApplyPatches(harmony);
+            Patches.LoaderPatches.ApplyPatches(harmony, loaderInfo);
 
             // Load plugins from ./plugins/ directory
             LoadPlugins(harmony);
@@ -98,20 +98,18 @@ namespace AffinityPluginLoader.Core
 
             // Load the assembly
             var assembly = Assembly.LoadFrom(pluginPath);
-            
-            // Get plugin metadata from assembly attributes
-            var nameAttr = assembly.GetCustomAttribute<AssemblyTitleAttribute>();
-            var versionAttr = assembly.GetCustomAttribute<AssemblyFileVersionAttribute>();
+            var productAttr = assembly.GetCustomAttribute<AssemblyProductAttribute>();
+            var versionAttr = assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>();
             var companyAttr = assembly.GetCustomAttribute<AssemblyCompanyAttribute>();
             var descAttr = assembly.GetCustomAttribute<AssemblyDescriptionAttribute>();
 
             var pluginInfo = new PluginInfo
             {
-                Name = nameAttr?.Title ?? assembly.GetName().Name,
-                Version = versionAttr?.Version ?? assembly.GetName().Version?.ToString() ?? "1.0.0",
+                Name = productAttr?.Product ?? assembly.GetName().Name,
+                Version = FormatVersion(versionAttr?.InformationalVersion, assembly.GetName().Version),
                 Author = companyAttr?.Company ?? "Unknown",
                 AssemblyName = assembly.FullName,
-                Description = descAttr.Description ?? ""
+                Description = descAttr?.Description ?? ""
             };
 
             // Look for IAffinityPlugin interface implementation
@@ -142,6 +140,38 @@ namespace AffinityPluginLoader.Core
 
             _loadedPlugins.Add(pluginInfo);
             Logger.Info($"Plugin loaded: {pluginInfo.Name} v{pluginInfo.Version} by {pluginInfo.Author}");
+        }
+
+        /// <summary>
+        /// Format version string, truncating git hash to 8 chars if present
+        /// </summary>
+        private static string FormatVersion(string informationalVersion, Version assemblyVersion)
+        {
+            // If we have an informational version, process it
+            if (!string.IsNullOrEmpty(informationalVersion))
+            {
+                // Check if it contains a git hash (format: "version+hash")
+                int plusIndex = informationalVersion.IndexOf('+');
+                if (plusIndex > 0 && plusIndex < informationalVersion.Length - 1)
+                {
+                    string version = informationalVersion.Substring(0, plusIndex);
+                    string hash = informationalVersion.Substring(plusIndex + 1);
+
+                    // Truncate hash to 8 chars if longer
+                    if (hash.Length > 8)
+                    {
+                        hash = hash.Substring(0, 8);
+                    }
+
+                    return $"{version}+{hash}";
+                }
+
+                // No git hash, return as-is
+                return informationalVersion;
+            }
+
+            // Fallback to assembly version
+            return assemblyVersion?.ToString() ?? "0.0.0";
         }
     }
 

@@ -7,10 +7,12 @@
     <PlatformTarget>x64</PlatformTarget>
   </PropertyGroup>
   <PropertyGroup>
-    <Title>WineFix</Title>
+    <Product>WineFix</Product>
     <Description>Plugin to fix Wine compatibility issues in Affinity applications</Description>
     <Version>0.2.0</Version>
-    <Authors>Noah Curoe &amp; WineFix Contributors</Authors>
+    <Company>Noah Curoe &amp; WineFix Contributors</Company>
+    <!-- Disable git hash in Release builds -->
+    <IncludeSourceRevisionInInformationalVersion Condition="'$(Configuration)' == 'Release'">false</IncludeSourceRevisionInInformationalVersion>
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="Lib.Harmony" Version="2.4.2" />

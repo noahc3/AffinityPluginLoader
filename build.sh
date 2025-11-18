@@ -3,6 +3,8 @@
 # Builds both .NET assemblies and native AffinityBootstrap.dll
 set -e
 
+CONFIGURATION="${1:-Release}"
+
 ROOTDIR=$(dirname "$(readlink -f "$0")")
 
 pushd "$ROOTDIR"
@@ -14,7 +16,7 @@ echo
 
 # Build .NET projects
 echo "[1/2] Building .NET projects..."
-dotnet build -c Release
+dotnet build -c "$CONFIGURATION"
 echo
 
 # Build AffinityBootstrap

@@ -8,7 +8,7 @@ using HarmonyLib;
 namespace AffinityPluginLoader.Core
 {
     /// <summary>
-    /// Logging API for AffinityPluginLoader and plugins.
+    /// Logging API for APL and plugins.
     /// Supports console and file output with log levels and rotation.
     /// </summary>
     public static class Logger
@@ -85,7 +85,7 @@ namespace AffinityPluginLoader.Core
                 // Log startup message with timezone info
                 var now = DateTime.Now;
                 var timezone = TimeZoneInfo.Local;
-                Info($"AffinityPluginLoader logging initialized");
+                Info($"APL logging initialized");
                 Info($"Local timezone: {timezone.DisplayName} (UTC{(timezone.BaseUtcOffset.TotalHours >= 0 ? "+" : "")}{timezone.BaseUtcOffset.TotalHours:0.##})");
                 Info($"Log level: {_minimumLevel}");
                 if (_fileLoggingEnabled)
@@ -139,17 +139,18 @@ namespace AffinityPluginLoader.Core
         {
             try
             {
-                // Determine log file path (plugins/apl.log)
+                // Determine log file path (plugins/logs/apl.latest.log)
                 string assemblyDir = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location);
                 string pluginsDir = Path.Combine(assemblyDir, "plugins");
+                string logsDir = Path.Combine(pluginsDir, "logs");
 
-                // Create plugins directory if it doesn't exist
-                if (!Directory.Exists(pluginsDir))
+                // Create plugins/logs directory if it doesn't exist
+                if (!Directory.Exists(logsDir))
                 {
-                    Directory.CreateDirectory(pluginsDir);
+                    Directory.CreateDirectory(logsDir);
                 }
 
-                _logFilePath = Path.Combine(pluginsDir, "apl.log");
+                _logFilePath = Path.Combine(logsDir, "apl.latest.log");
 
                 // Rotate existing log files
                 RotateLogFiles(_logFilePath);
@@ -175,26 +176,29 @@ namespace AffinityPluginLoader.Core
                 if (!File.Exists(logFilePath))
                     return;
 
-                // Delete apl.log.5 if it exists
-                string log5 = logFilePath + ".5";
+                // Get directory and base name (e.g., "apl.latest.log" -> "apl", ".log")
+                string logDir = Path.GetDirectoryName(logFilePath);
+
+                // Delete apl.5.log if it exists
+                string log5 = Path.Combine(logDir, "apl.5.log");
                 if (File.Exists(log5))
                 {
                     File.Delete(log5);
                 }
 
-                // Cycle logs: apl.log.4 -> apl.log.5, apl.log.3 -> apl.log.4, etc.
+                // Cycle logs: apl.4.log -> apl.5.log, apl.3.log -> apl.4.log, etc.
                 for (int i = 4; i >= 1; i--)
                 {
-                    string oldLog = logFilePath + "." + i;
-                    string newLog = logFilePath + "." + (i + 1);
+                    string oldLog = Path.Combine(logDir, $"apl.{i}.log");
+                    string newLog = Path.Combine(logDir, $"apl.{i + 1}.log");
                     if (File.Exists(oldLog))
                     {
                         File.Move(oldLog, newLog);
                     }
                 }
 
-                // Move current log to apl.log.1
-                File.Move(logFilePath, logFilePath + ".1");
+                // Move current log to apl.1.log
+                File.Move(logFilePath, Path.Combine(logDir, "apl.1.log"));
             }
             catch (Exception ex)
             {

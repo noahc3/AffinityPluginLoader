@@ -4,6 +4,9 @@ REM Builds both .NET assemblies and native AffinityBootstrap.dll
 
 setlocal enabledelayedexpansion
 
+set CONFIGURATION=%1
+if "%CONFIGURATION%"=="" set CONFIGURATION=Release
+
 echo ========================================
 echo Building AffinityPluginLoader
 echo ========================================
@@ -11,7 +14,7 @@ echo.
 
 REM Build .NET projects
 echo [1/2] Building .NET projects...
-dotnet build -c Release
+dotnet build -c %CONFIGURATION%
 if %errorlevel% neq 0 (
     echo Error: .NET build failed
     exit /b 1

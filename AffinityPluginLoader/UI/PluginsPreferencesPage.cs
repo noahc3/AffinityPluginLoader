@@ -103,7 +103,7 @@ namespace AffinityPluginLoader.UI
                 var pageNameProperty = preferencesPageType.GetProperty("PageName");
                 if (pageNameProperty != null)
                 {
-                    pageNameProperty.SetValue(grid, "AffinityPluginLoader");
+                    pageNameProperty.SetValue(grid, "Affinity Plugin Loader");
                 }
 
                 Logger.Debug($"PluginsPreferencesPage created successfully");
