@@ -7,8 +7,8 @@
     <PlatformTarget>x64</PlatformTarget>
   </PropertyGroup>
   <PropertyGroup>
-    <Title>AffinityHook</Title>
-    <Description>Plugin loader for Affinity by Canva.</Description>
+    <Title>Affinity Plugin Loader</Title>
+    <Description>Plugin loader for 'Affinity by Canva'.</Description>
     <Version>0.2.0</Version>
     <Authors>Noah Curoe &amp; AffinityPluginLoader Contributors</Authors>
   </PropertyGroup>

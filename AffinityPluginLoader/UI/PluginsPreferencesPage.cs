@@ -5,6 +5,7 @@ using System.Reflection;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Markup;
+using AffinityPluginLoader.Core;
 
 namespace AffinityPluginLoader.UI
 {
@@ -28,23 +29,23 @@ namespace AffinityPluginLoader.UI
         {
             try
             {
-                HarmonyLib.FileLog.Log($"Creating PluginsPreferencesPage\n");
-                
+                Logger.Debug($"Creating PluginsPreferencesPage");
+
                 // Find Serif.Affinity assembly (it's already loaded in the Affinity process)
                 var serifAssembly = AppDomain.CurrentDomain.GetAssemblies()
                     .FirstOrDefault(a => a.GetName().Name == "Serif.Affinity");
-                
+
                 if (serifAssembly == null)
                 {
-                    HarmonyLib.FileLog.Log($"ERROR: Serif.Affinity not found\n");
+                    Logger.Error($"ERROR: Serif.Affinity not found");
                     return null;
                 }
-                
+
                 // Get PreferencesPage base type
                 var preferencesPageType = serifAssembly.GetType("Serif.Affinity.UI.Dialogs.Preferences.PreferencesPage");
                 if (preferencesPageType == null)
                 {
-                    HarmonyLib.FileLog.Log($"ERROR: PreferencesPage type not found\n");
+                    Logger.Error($"ERROR: PreferencesPage type not found");
                     return null;
                 }
                 
@@ -67,7 +68,7 @@ namespace AffinityPluginLoader.UI
                 
                 if (content == null)
                 {
-                    HarmonyLib.FileLog.Log($"ERROR: Could not load XAML\n");
+                    Logger.Error($"ERROR: Could not load XAML");
                     return null;
                 }
                 
@@ -104,13 +105,13 @@ namespace AffinityPluginLoader.UI
                 {
                     pageNameProperty.SetValue(grid, "AffinityPluginLoader");
                 }
-                
-                HarmonyLib.FileLog.Log($"PluginsPreferencesPage created successfully\n");
+
+                Logger.Debug($"PluginsPreferencesPage created successfully");
                 return grid;
             }
             catch (Exception ex)
             {
-                HarmonyLib.FileLog.Log($"Error creating PluginsPreferencesPage: {ex.Message}\n{ex.StackTrace}\n");
+                Logger.Error("Error creating PluginsPreferencesPage", ex);
                 return null;
             }
         }

@@ -22,7 +22,7 @@ namespace AffinityPluginLoader.Core
             if (_initialized)
                 return;
 
-            FileLog.Log($"PluginManager initializing...\n");
+            Logger.Info($"PluginManager initializing...");
 
             // Add AffinityPluginLoader itself as the first plugin
             var loaderAssembly = Assembly.GetExecutingAssembly();
@@ -40,7 +40,7 @@ namespace AffinityPluginLoader.Core
                 Description = loaderDescAttr.Description
             };
             _loadedPlugins.Add(loaderInfo);
-            FileLog.Log($"Added AffinityPluginLoader to plugin list: {loaderInfo.Name} v{loaderInfo.Version}\n");
+            Logger.Info($"Added AffinityPluginLoader to plugin list: {loaderInfo.Name} v{loaderInfo.Version}");
 
             // Apply loader's own patches (version strings, preferences tab)
             Patches.LoaderPatches.ApplyPatches(harmony);
@@ -49,7 +49,7 @@ namespace AffinityPluginLoader.Core
             LoadPlugins(harmony);
 
             _initialized = true;
-            FileLog.Log($"PluginManager initialized with {_loadedPlugins.Count} plugins\n");
+            Logger.Info($"PluginManager initialized with {_loadedPlugins.Count} plugins");
         }
 
         private static void LoadPlugins(Harmony harmony)
@@ -61,18 +61,18 @@ namespace AffinityPluginLoader.Core
                 string loaderDir = Path.GetDirectoryName(loaderPath);
                 string pluginsDir = Path.Combine(loaderDir, "plugins");
 
-                FileLog.Log($"Looking for plugins in: {pluginsDir}\n");
+                Logger.Debug($"Looking for plugins in: {pluginsDir}");
 
                 if (!Directory.Exists(pluginsDir))
                 {
-                    FileLog.Log($"Plugins directory not found, creating it...\n");
+                    Logger.Info($"Plugins directory not found, creating it...");
                     Directory.CreateDirectory(pluginsDir);
                     return;
                 }
 
                 // Load all DLLs in the plugins directory
                 var pluginFiles = Directory.GetFiles(pluginsDir, "*.dll");
-                FileLog.Log($"Found {pluginFiles.Length} DLL files in plugins directory\n");
+                Logger.Debug($"Found {pluginFiles.Length} DLL files in plugins directory");
 
                 foreach (var pluginFile in pluginFiles)
                 {
@@ -82,19 +82,19 @@ namespace AffinityPluginLoader.Core
                     }
                     catch (Exception ex)
                     {
-                        FileLog.Log($"Failed to load plugin {Path.GetFileName(pluginFile)}: {ex.Message}\n");
+                        Logger.Error($"Failed to load plugin {Path.GetFileName(pluginFile)}: {ex.Message}");
                     }
                 }
             }
             catch (Exception ex)
             {
-                FileLog.Log($"Error loading plugins: {ex.Message}\n{ex.StackTrace}\n");
+                Logger.Error("Error loading plugins", ex);
             }
         }
 
         private static void LoadPlugin(string pluginPath, Harmony harmony)
         {
-            FileLog.Log($"Loading plugin: {Path.GetFileName(pluginPath)}\n");
+            Logger.Debug($"Loading plugin: {Path.GetFileName(pluginPath)}");
 
             // Load the assembly
             var assembly = Assembly.LoadFrom(pluginPath);
@@ -127,21 +127,21 @@ namespace AffinityPluginLoader.Core
                     {
                         var plugin = Activator.CreateInstance(pluginType) as IAffinityPlugin;
                         plugin?.Initialize(harmony);
-                        FileLog.Log($"  Initialized plugin: {pluginType.Name}\n");
+                        Logger.Info($"Initialized plugin: {pluginType.Name}");
                     }
                     catch (Exception ex)
                     {
-                        FileLog.Log($"  Failed to initialize {pluginType.Name}: {ex.Message}\n");
+                        Logger.Error($"Failed to initialize {pluginType.Name}: {ex.Message}");
                     }
                 }
             }
             else
             {
-                FileLog.Log($"  No IAffinityPlugin implementation found, plugin loaded but not initialized\n");
+                Logger.Info($"No IAffinityPlugin implementation found, plugin loaded but not initialized");
             }
 
             _loadedPlugins.Add(pluginInfo);
-            FileLog.Log($"  Plugin loaded: {pluginInfo.Name} v{pluginInfo.Version} by {pluginInfo.Author}\n");
+            Logger.Info($"Plugin loaded: {pluginInfo.Name} v{pluginInfo.Version} by {pluginInfo.Author}");
         }
     }
 

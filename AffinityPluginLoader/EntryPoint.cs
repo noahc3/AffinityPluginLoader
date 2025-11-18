@@ -2,6 +2,7 @@ using System;
 using System.IO;
 using System.Reflection;
 using HarmonyLib;
+using AffinityPluginLoader.Core;
 
 namespace AffinityPluginLoader
 {
@@ -24,7 +25,7 @@ namespace AffinityPluginLoader
             }
             catch (Exception ex)
             {
-                FileLog.Log($"Static Initialize error: {ex.Message}\n{ex.StackTrace}\n");
+                Logger.Error("Static Initialize error", ex);
                 return 1;
             }
         }
@@ -39,12 +40,15 @@ namespace AffinityPluginLoader
             {
                 if (_initialized)
                     return;
-                    
+
                 _initialized = true;
             }
-            
-            FileLog.Log($"AffinityPluginLoader initializing... {DateTime.UtcNow}\n");
-            FileLog.Log($"Current AppDomain: {AppDomain.CurrentDomain.FriendlyName}\n");
+
+            // Initialize logger first
+            Logger.Initialize();
+
+            Logger.Info($"AffinityPluginLoader initializing... {DateTime.UtcNow}");
+            Logger.Debug($"Current AppDomain: {AppDomain.CurrentDomain.FriendlyName}");
             
             try
             {
@@ -53,29 +57,29 @@ namespace AffinityPluginLoader
                 
                 if (defaultDomain != null && defaultDomain != AppDomain.CurrentDomain)
                 {
-                    FileLog.Log($"Switching to default AppDomain: {defaultDomain.FriendlyName}\n");
-                    
+                    Logger.Info($"Switching to default AppDomain: {defaultDomain.FriendlyName}");
+
                     // Since AffinityPluginLoader.dll is now in Affinity's folder,
                     // the default domain can find it naturally
                     var patcherType = typeof(DefaultDomainPatcher);
                     var patcher = (DefaultDomainPatcher)defaultDomain.CreateInstanceAndUnwrap(
                         patcherType.Assembly.FullName,
                         patcherType.FullName);
-                    
+
                     patcher.Initialize();
-                    FileLog.Log($"AffinityPluginLoader initialized in default AppDomain\n");
+                    Logger.Info($"AffinityPluginLoader initialized in default AppDomain");
                 }
                 else
                 {
                     // Fallback: run in current domain
-                    FileLog.Log($"Running in current AppDomain\n");
+                    Logger.Info($"Running in current AppDomain");
                     var harmony = new Harmony("dev.ncuroe.affinitypluginloader");
                     Core.PluginManager.Initialize(harmony);
                 }
             }
             catch (Exception ex)
             {
-                FileLog.Log($"Error: {ex.Message}\n{ex.StackTrace}\n");
+                Logger.Error("Error during initialization", ex);
             }
         }
         
@@ -92,7 +96,7 @@ namespace AffinityPluginLoader
             }
             catch (Exception ex)
             {
-                FileLog.Log($"Error getting default AppDomain: {ex.Message}\n");
+                Logger.Error($"Error getting default AppDomain: {ex.Message}");
             }
             
             return null;
@@ -106,14 +110,14 @@ namespace AffinityPluginLoader
         {
             try
             {
-                HarmonyLib.FileLog.Log($"DefaultDomainPatcher running in AppDomain: {AppDomain.CurrentDomain.FriendlyName}\n");
-                
+                Logger.Debug($"DefaultDomainPatcher running in AppDomain: {AppDomain.CurrentDomain.FriendlyName}");
+
                 var harmony = new Harmony("dev.ncuroe.affinitypluginloader");
                 Core.PluginManager.Initialize(harmony);
             }
             catch (Exception ex)
             {
-                HarmonyLib.FileLog.Log($"Error in DefaultDomainPatcher: {ex.Message}\n{ex.StackTrace}\n");
+                Logger.Error("Error in DefaultDomainPatcher", ex);
             }
         }
     }

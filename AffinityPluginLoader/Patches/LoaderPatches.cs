@@ -2,6 +2,7 @@ using System;
 using System.Linq;
 using System.Reflection;
 using HarmonyLib;
+using AffinityPluginLoader.Core;
 
 namespace AffinityPluginLoader.Patches
 {
@@ -16,12 +17,12 @@ namespace AffinityPluginLoader.Patches
         public static void ApplyPatches(Harmony harmony)
         {
             _harmony = harmony;
-            
-            FileLog.Log($"Applying AffinityPluginLoader patches...\n");
-            
+
+            Logger.Info($"Applying AffinityPluginLoader patches...");
+
             // Apply version string patches
             ApplyVersionPatches();
-            
+
             // Apply preferences dialog patches
             PreferencesPatches.ApplyPatches(harmony);
         }
@@ -36,20 +37,20 @@ namespace AffinityPluginLoader.Patches
                 // Find the Serif.Affinity assembly
                 var serifAssembly = AppDomain.CurrentDomain.GetAssemblies()
                     .FirstOrDefault(a => a.GetName().Name == "Serif.Affinity");
-                
+
                 if (serifAssembly == null)
                 {
-                    FileLog.Log($"ERROR: Serif.Affinity assembly not found\n");
+                    Logger.Error($"ERROR: Serif.Affinity assembly not found");
                     return;
                 }
-                
-                FileLog.Log($"Found Serif.Affinity assembly: {serifAssembly.GetName().Version}\n");
-                
+
+                Logger.Info($"Found Serif.Affinity assembly: {serifAssembly.GetName().Version}");
+
                 // Get the Application type
                 var applicationType = serifAssembly.GetType("Serif.Affinity.Application");
                 if (applicationType == null)
                 {
-                    FileLog.Log($"ERROR: Application type not found\n");
+                    Logger.Error($"ERROR: Application type not found");
                     return;
                 }
                 
@@ -59,15 +60,15 @@ namespace AffinityPluginLoader.Patches
                 {
                     var postfix = typeof(LoaderPatches).GetMethod(nameof(GetVerboseVersionString_Postfix), BindingFlags.Static | BindingFlags.Public);
                     _harmony.Patch(getVerboseVersionString, postfix: new HarmonyMethod(postfix));
-                    FileLog.Log($"Patched GetCurrentVerboseVersionString\n");
+                    Logger.Info($"Patched GetCurrentVerboseVersionString");
                 }
-                
+
                 _patchesApplied = true;
-                FileLog.Log($"Version patches applied successfully!\n");
+                Logger.Info($"Version patches applied successfully!");
             }
             catch (Exception ex)
             {
-                FileLog.Log($"Failed to apply version patches: {ex.Message}\n{ex.StackTrace}\n");
+                Logger.Error("Failed to apply version patches", ex);
             }
         }
 
