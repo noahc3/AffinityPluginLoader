@@ -16,22 +16,9 @@ namespace AffinityPluginLoader
         {
             try
             {
-                // Check for --detach flag
-                bool detachMode = false;
-                var affinityArgs = new System.Collections.Generic.List<string>();
-                
-                foreach (string arg in args)
-                {
-                    if (arg.Equals("--detach", StringComparison.OrdinalIgnoreCase))
-                    {
-                        detachMode = true;
-                    }
-                    else
-                    {
-                        affinityArgs.Add(arg);
-                    }
-                }
-                
+                // Check for APLHOOK_DETACH environment variable
+                bool detachMode = !string.IsNullOrEmpty(Environment.GetEnvironmentVariable("APLHOOK_DETACH"));
+
                 // Get the directory where AffinityHook.exe is located
                 string hookExeDir = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location);
                 string hookExeName = Path.GetFileName(Assembly.GetExecutingAssembly().Location);
@@ -110,7 +97,7 @@ namespace AffinityPluginLoader
                 var startInfo = new ProcessStartInfo
                 {
                     FileName = affinityExe,
-                    Arguments = string.Join(" ", affinityArgs),
+                    Arguments = string.Join(" ", args),
                     WorkingDirectory = affinityDir,
                     UseShellExecute = false,
                     CreateNoWindow = false
@@ -166,7 +153,7 @@ namespace AffinityPluginLoader
                         }
                     };
                     
-                    Console.WriteLine("Waiting for Affinity to exit... (use --detach to skip, Ctrl+C to terminate)");
+                    Console.WriteLine("Waiting for Affinity to exit... (set APLHOOK_DETACH env var to skip, Ctrl+C to terminate)");
                     process.WaitForExit();
                     Console.WriteLine($"Affinity exited with code {process.ExitCode}");
                     return process.ExitCode;
