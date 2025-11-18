@@ -74,7 +74,8 @@ namespace AffinityPluginLoader.Patches
         // Postfix for GetCurrentVerboseVersionString (splash screen)
         public static void GetVerboseVersionString_Postfix(ref string __result)
         {
-            __result = __result + " (AffinityPluginLoader 0.1.0.1)";
+            var version = Assembly.GetExecutingAssembly().GetName().Version;
+            __result = __result + $" (AffinityPluginLoader {version})";
         }
     }
 }

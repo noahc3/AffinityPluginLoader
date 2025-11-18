@@ -24,6 +24,9 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.client_payload.head_sha || github.sha }}
+          repository: ${{ github.event.client_payload.head_repo || github.repository }}
 
       - name: Setup MSBuild
         uses: microsoft/setup-msbuild@v2
@@ -36,14 +39,18 @@ jobs:
       - name: Build AffinityBootstrap.dll
         working-directory: AffinityBootstrap
         run: |
-          cl.exe /nologo /O2 /LD bootstrap.c /link /NOLOGO ole32.lib oleaut32.lib uuid.lib /OUT:AffinityBootstrap.dll
+          if not exist build mkdir build
+          cl.exe /LD bootstrap.c ole32.lib oleaut32.lib mscoree.lib /Fe:build\AffinityBootstrap.dll /nologo
+          del bootstrap.obj
+          del build\AffinityBootstrap.exp
+          del build\AffinityBootstrap.lib
         shell: cmd
 
       - name: Upload AffinityBootstrap artifact
         uses: actions/upload-artifact@v4
         with:
           name: AffinityBootstrap
-          path: AffinityBootstrap/AffinityBootstrap.dll
+          path: AffinityBootstrap/build/AffinityBootstrap.dll
           if-no-files-found: error
 
   # Build all C# projects (.NET Framework 4.8)
@@ -55,45 +62,44 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Setup MSBuild
-        uses: microsoft/setup-msbuild@v2
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
 
-      - name: Setup NuGet
-        uses: nuget/setup-nuget@v2
-
-      - name: Restore NuGet packages
-        run: nuget restore AffinityPluginLoader.slnx
+      - name: Restore dependencies
+        run: dotnet restore
 
       - name: Build AffinityPluginLoader
-        run: msbuild AffinityPluginLoader/AffinityPluginLoader.csproj /p:Configuration=Release /p:Platform=x64 /p:OutputPath=bin\x64\Release\ /p:SkipInvalidConfigurations=true
+        run: dotnet build AffinityPluginLoader/AffinityPluginLoader.csproj -c Release
 
       - name: Build WineFix
-        run: msbuild WineFix/WineFix.csproj /p:Configuration=Release /p:Platform=x64 /p:OutputPath=bin\x64\Release\ /p:SkipInvalidConfigurations=true
+        run: dotnet build WineFix/WineFix.csproj -c Release
 
       - name: Build AffinityHook
-        run: msbuild AffinityHook/AffinityHook.csproj /p:Configuration=Release /p:Platform=x64 /p:OutputPath=bin\x64\Release\ /p:SkipInvalidConfigurations=true
+        run: dotnet build AffinityHook/AffinityHook.csproj -c Release
 
       - name: Upload AffinityPluginLoader artifacts
         uses: actions/upload-artifact@v4
         with:
           name: AffinityPluginLoader
           path: |
-            AffinityPluginLoader/bin/x64/Release/AffinityPluginLoader.dll
-            AffinityPluginLoader/bin/x64/Release/0Harmony.dll
+            AffinityPluginLoader/bin/Release/net48/win-x64/AffinityPluginLoader.dll
+            AffinityPluginLoader/bin/Release/net48/win-x64/0Harmony.dll
           if-no-files-found: error
 
       - name: Upload AffinityHook artifacts
         uses: actions/upload-artifact@v4
         with:
           name: AffinityHook
-          path: AffinityHook/bin/x64/Release/AffinityHook.exe
+          path: AffinityHook/bin/Release/net48/win-x64/AffinityHook.exe
           if-no-files-found: error
 
       - name: Upload WineFix artifacts
         uses: actions/upload-artifact@v4
         with:
           name: WineFix
-          path: WineFix/bin/x64/Release/WineFix.dll
+          path: WineFix/bin/Release/net48/win-x64/WineFix.dll
           if-no-files-found: error
 
   # Package all artifacts into release archives
