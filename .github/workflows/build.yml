@@ -84,22 +84,22 @@ jobs:
         with:
           name: AffinityPluginLoader
           path: |
-            AffinityPluginLoader/bin/Release/net48/win-x64/AffinityPluginLoader.dll
-            AffinityPluginLoader/bin/Release/net48/win-x64/0Harmony.dll
+            AffinityPluginLoader/bin/Debug/net48/win-x64/AffinityPluginLoader.dll
+            AffinityPluginLoader/bin/Debug/net48/win-x64/0Harmony.dll
           if-no-files-found: error
 
       - name: Upload AffinityHook artifacts
         uses: actions/upload-artifact@v4
         with:
           name: AffinityHook
-          path: AffinityHook/bin/Release/net48/win-x64/AffinityHook.exe
+          path: AffinityHook/bin/Debug/net48/win-x64/AffinityHook.exe
           if-no-files-found: error
 
       - name: Upload WineFix artifacts
         uses: actions/upload-artifact@v4
         with:
           name: WineFix
-          path: WineFix/bin/Release/net48/win-x64/WineFix.dll
+          path: WineFix/bin/Debug/net48/win-x64/WineFix.dll
           if-no-files-found: error
 
   # Build d2d1.dll for Wine (x86_64-unix)
