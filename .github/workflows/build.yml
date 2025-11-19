@@ -102,11 +102,40 @@ jobs:
           path: WineFix/bin/Release/net48/win-x64/WineFix.dll
           if-no-files-found: error
 
+  # Build d2d1.dll for Wine (x86_64-unix)
+  build-d2d1:
+    name: Build d2d1.dll (Wine Native)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install Wine development tools
+        run: |
+          sudo dpkg --add-architecture i386
+          sudo mkdir -pm755 /etc/apt/keyrings
+          sudo wget -O /etc/apt/keyrings/winehq-archive.key https://dl.winehq.org/wine-builds/winehq.key
+          sudo wget -NP /etc/apt/sources.list.d/ https://dl.winehq.org/wine-builds/ubuntu/dists/jammy/winehq-jammy.sources
+          sudo apt update
+          sudo apt install -y --install-recommends winehq-devel
+
+      - name: Build d2d1.dll for x86_64-unix
+        working-directory: WineFix/lib/d2d1
+        run: make TARGET=x86_64-unix
+
+      - name: Upload d2d1 artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: d2d1
+          path: WineFix/lib/d2d1/build/x86_64-unix/d2d1.dll.so
+          if-no-files-found: error
+
   # Package all artifacts into release archives
   package:
     name: Package Release Artifacts
     runs-on: ubuntu-latest
-    needs: [build-bootstrap, build-csharp]
+    needs: [build-bootstrap, build-csharp, build-d2d1]
     
     steps:
       - name: Checkout code
@@ -140,6 +169,12 @@ jobs:
           name: WineFix
           path: build/winefix
 
+      - name: Download d2d1 artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: d2d1
+          path: build/d2d1
+
       - name: Create affinitypluginloader package structure
         run: |
           mkdir -p package/affinitypluginloader
@@ -155,6 +190,7 @@ jobs:
           mkdir -p package/winefix/plugins
           cp build/winefix/WineFix.dll package/winefix/plugins/
           cp WineFix/LICENSE package/winefix/plugins/LICENSE
+          cp build/d2d1/d2d1.dll.so package/winefix/d2d1.dll
 
       - name: Create combined package structure
         run: |
@@ -164,6 +200,7 @@ jobs:
           cp build/pluginloader/AffinityPluginLoader.dll package/combined/
           cp build/pluginloader/0Harmony.dll package/combined/
           cp build/winefix/WineFix.dll package/combined/plugins/
+          cp build/d2d1/d2d1.dll.so package/combined/d2d1.dll
 
       - name: Create release archives
         run: |

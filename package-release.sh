@@ -101,6 +101,14 @@ cp "README.md" "$WINEFIX_TEMP/"
 cp "WineFix/LICENSE" "$WINEFIX_TEMP/"
 cp "WineFix/bin/x64/$CONFIGURATION/net48/win-x64/WineFix.dll" "$WINEFIX_TEMP/plugins/"
 
+# Copy d2d1.dll (Wine native) if it exists
+if [ -f "WineFix/lib/d2d1/build/x86_64-unix/d2d1.dll.so" ]; then
+    cp "WineFix/lib/d2d1/build/x86_64-unix/d2d1.dll.so" "$WINEFIX_TEMP/d2d1.dll"
+    echo "Included d2d1.dll (Wine native)"
+else
+    echo "Warning: d2d1.dll.so not found. Skipping d2d1.dll in WineFix package."
+fi
+
 # Create zip
 (cd "$WINEFIX_TEMP" && zip -q -r "../winefix-v$WINEFIX_VERSION.zip" *)
 rm -rf "$WINEFIX_TEMP"
@@ -118,6 +126,14 @@ cp "AffinityBootstrap/build/AffinityBootstrap.dll" "$COMBINED_TEMP/"
 cp "AffinityHook/bin/x64/$CONFIGURATION/net48/win-x64/AffinityHook.exe" "$COMBINED_TEMP/"
 cp "AffinityPluginLoader/bin/x64/$CONFIGURATION/net48/win-x64/AffinityPluginLoader.dll" "$COMBINED_TEMP/"
 cp "WineFix/bin/x64/$CONFIGURATION/net48/win-x64/WineFix.dll" "$COMBINED_TEMP/plugins/"
+
+# Copy d2d1.dll (Wine native) if it exists
+if [ -f "WineFix/lib/d2d1/build/x86_64-unix/d2d1.dll.so" ]; then
+    cp "WineFix/lib/d2d1/build/x86_64-unix/d2d1.dll.so" "$COMBINED_TEMP/d2d1.dll"
+    echo "Included d2d1.dll (Wine native) in combined package"
+else
+    echo "Warning: d2d1.dll.so not found. Skipping d2d1.dll in combined package."
+fi
 
 # Create tar.xz
 tar -C "$COMBINED_TEMP" -cJf "$OUTPUT_DIR/affinitypluginloader-plus-winefix.tar.xz" .
