@@ -71,13 +71,13 @@ jobs:
         run: dotnet restore
 
       - name: Build AffinityPluginLoader
-        run: dotnet build AffinityPluginLoader/AffinityPluginLoader.csproj -c Release
+        run: dotnet build AffinityPluginLoader/AffinityPluginLoader.csproj -c Debug
 
       - name: Build WineFix
-        run: dotnet build WineFix/WineFix.csproj -c Release
+        run: dotnet build WineFix/WineFix.csproj -c Debug
 
       - name: Build AffinityHook
-        run: dotnet build AffinityHook/AffinityHook.csproj -c Release
+        run: dotnet build AffinityHook/AffinityHook.csproj -c Debug
 
       - name: Upload AffinityPluginLoader artifacts
         uses: actions/upload-artifact@v4
