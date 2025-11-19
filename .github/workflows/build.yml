@@ -145,6 +145,15 @@ jobs:
         id: commit
         run: echo "short_sha=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
 
+      - name: Save commit SHA
+        run: git rev-parse HEAD > commit_sha.txt
+
+      - name: Upload commit SHA artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: commit_sha
+          path: commit_sha.txt
+
       - name: Download AffinityBootstrap artifact
         uses: actions/download-artifact@v4
         with:
