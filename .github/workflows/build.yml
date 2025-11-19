@@ -118,7 +118,7 @@ jobs:
           sudo wget -O /etc/apt/keyrings/winehq-archive.key https://dl.winehq.org/wine-builds/winehq.key
           sudo wget -NP /etc/apt/sources.list.d/ https://dl.winehq.org/wine-builds/ubuntu/dists/jammy/winehq-jammy.sources
           sudo apt update
-          sudo apt install -y --install-recommends winehq-devel
+          sudo apt install -y --install-recommends wine64-tools
 
       - name: Build d2d1.dll for x86_64-unix
         working-directory: WineFix/lib/d2d1
