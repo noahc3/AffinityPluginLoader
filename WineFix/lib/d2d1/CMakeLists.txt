@@ -83,7 +83,7 @@ target_compile_definitions(d2d1 PRIVATE
 target_compile_options(d2d1 PRIVATE
     ${ARCH_FLAGS}
     -Wall
-    -O2
+    -O3
 )
 
 # Linker flags

@@ -6,6 +6,9 @@
 # Build target (can be overridden: make TARGET=x86_64-windows)
 TARGET ?= x86_64-unix
 
+# Optimization level (can be overridden: make OPT=-O0)
+OPT ?= -O3
+
 # Directories
 SRCDIR := src
 INCDIR := include
@@ -26,7 +29,7 @@ IDL_HEADERS := $(patsubst $(INCDIR)/windows/%.idl,$(OUTDIR)/include/%.h,$(IDL_FI
 
 # Common flags
 CFLAGS := -I$(INCDIR) -I$(INCDIR)/windows -I$(OUTDIR)/include -I$(SRCDIR)
-CFLAGS += -Wall -O2 -D__WINE__ -D_REENTRANT -DWINE_UNICODE_NATIVE
+CFLAGS += -Wall $(OPT) -D__WINE__ -D_REENTRANT -DWINE_UNICODE_NATIVE
 LDFLAGS :=
 
 # Target-specific configuration
