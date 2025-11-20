@@ -11,15 +11,17 @@ To install WineFix, download `apl-winefix-vX.X.X.zip` from the [latest release](
 
 As of now WineFix fixes the following bugs:
 
-- Fixed: Preferences not saving on Linux
+- Fixed: Preferences fail to save on application exit
+- Fixed: Vector path preview lines are drawn incorrectly and don't match the underlying stroke path
 
 > [!WARNING]
 > WineFix currently patches out the Canva sign-in dialog prompt when launching Affinity. This is temporary and the sign-in dialog prompt will be restored as soon as we have a known consistent way to fix the sign-in browser redirect and Affinity protocol handler.
 
 More fixes are planned. We are currently researching potential solutions for the following bugs:
 
-- Pen preview line doesn't match actual stroke path
-- Color picker doesn't display zoom image
+- Color picker doesn't display zoom image on Wayland
+- Accepting crash reporting causes permanent crash until prefs are cleared
+- Embedded SVG document editor causes crash after being open for some amount of time
 
 We are open to resolving any Wine-specific bugs. Feel free to open an issue requesting a patch for any
 particular bug you encounter. Just please keep in mind these bugs take time to research and develop patches for,
