@@ -1,0 +1,55 @@
+# Build directories
+build/
+build-*/
+
+# Object files
+*.o
+*.obj
+*.lo
+
+# Libraries
+*.lib
+*.a
+*.la
+
+# Shared objects (DLLs)
+*.dll
+*.dll.so
+*.so
+*.dylib
+
+# Executables
+*.exe
+*.out
+*.app
+
+# Generated files
+*.res
+*.rc.tmp
+*_processed.rc
+
+# IDL generated headers
+include/generated/
+
+# CMake
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+install_manifest.txt
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Dependency files
+*.d
+
+# Log files
+*.log
