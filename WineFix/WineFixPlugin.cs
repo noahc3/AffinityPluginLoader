@@ -17,6 +17,7 @@ namespace WineFix
 
                 // Apply Wine compatibility patches
                 Patches.MainWindowLoadedPatch.ApplyPatches(harmony);
+                Patches.ColorPickerWaylandPatch.ApplyPatches(harmony);
 
                 Logger.Info($"WineFix plugin initialized successfully");
             }
