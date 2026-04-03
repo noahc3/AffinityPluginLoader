@@ -16,13 +16,37 @@ for arg in "$@"; do
         --debug)
             CONFIGURATION="Debug"
             ;;
+        --docker)
+            USE_DOCKER=true
+            ;;
         *)
             echo "Unknown argument: $arg"
-            echo "Usage: $0 [--skip-build] [--debug]"
+            echo "Usage: $0 [--skip-build] [--debug] [--docker]"
             exit 1
             ;;
     esac
 done
+
+# If --docker, re-exec this script inside the container
+if [ "${USE_DOCKER:-false}" = true ]; then
+    ROOTDIR=$(dirname "$(readlink -f "$0")")
+    IMAGE_NAME="apl-builder"
+    if ! docker image inspect "$IMAGE_NAME" &>/dev/null; then
+        echo "Building Docker image '$IMAGE_NAME'..."
+        docker build -t "$IMAGE_NAME" "$ROOTDIR/docker"
+    fi
+    # Forward all args except --docker
+    ARGS=()
+    for arg in "$@"; do
+        [ "$arg" != "--docker" ] && ARGS+=("$arg")
+    done
+    exec docker run --rm \
+        -v "$ROOTDIR:/src" \
+        -w /src \
+        --user "$(id -u):$(id -g)" \
+        "$IMAGE_NAME" \
+        bash package-release.sh "${ARGS[@]}"
+fi
 
 echo "========================================"
 echo "AffinityPluginLoader Release Packaging"

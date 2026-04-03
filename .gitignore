@@ -5,6 +5,7 @@
 
 # dotenv files
 .env
+.AFFINITY_PATH
 
 # User-specific files
 *.rsuser
