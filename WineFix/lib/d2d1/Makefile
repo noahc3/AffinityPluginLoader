@@ -176,6 +176,7 @@ endif
 ifeq ($(BUILD_MODE),unix)
 $(OUTPUT_DLL): $(OBJECTS) $(SPEC_FILE) | $(OUTDIR)
 	@echo "LINK (Unix PE): $@"
+	@objcopy --weaken $(OUTDIR)/factory.o
 	@$(WINEGCC) -m64 -shared $(SPEC_FILE) $(OBJECTS) -o $@ $(LIBS)
 endif
 
