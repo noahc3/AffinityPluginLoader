@@ -176,7 +176,13 @@ endif
 ifeq ($(BUILD_MODE),unix)
 $(OUTPUT_DLL): $(OBJECTS) $(SPEC_FILE) | $(OUTDIR)
 	@echo "LINK (Unix PE): $@"
-	@objcopy --weaken $(OUTDIR)/factory.o
+	@objcopy \
+		--weaken-symbol=IID_ID2D1Factory4 --weaken-symbol=IID_ID2D1Factory5 \
+		--weaken-symbol=IID_ID2D1Factory6 --weaken-symbol=IID_ID2D1Factory7 \
+		--weaken-symbol=IID_ID2D1Device3 --weaken-symbol=IID_ID2D1Device4 \
+		--weaken-symbol=IID_ID2D1Device5 --weaken-symbol=IID_ID2D1Device6 \
+		--weaken-symbol=IID_ID2D1DeviceContext5 --weaken-symbol=IID_ID2D1DeviceContext6 \
+		$(OUTDIR)/factory.o
 	@$(WINEGCC) -m64 -shared $(SPEC_FILE) $(OBJECTS) -o $@ $(LIBS)
 endif
 
