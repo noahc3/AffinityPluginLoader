@@ -38,7 +38,7 @@ A better guide will be written up soon. For now you should reference the source 
 Build scripts are provided for Windows and Linux.
 
 > [!TIP]
-> Developing on Linux? You may want to use [apl-devcontainer](https://github.com/noahc3/apl-devcontainer) to get a working build environment. Feel free to take a look at the Dockerfile to get an idea of what you'll need on your host system to build without Docker. 
+> Developing on Linux? Use `./docker-build.sh` to build inside a Docker container with all dependencies pre-configured. See `docker/Dockerfile` for the full list of build dependencies if you prefer to build on your host system. 
 >
 > APL fully supports building on Linux via mingw-w64 and the dotnet SDK, you'll just need to grab a Windows SDK header and library from Wine.
 
