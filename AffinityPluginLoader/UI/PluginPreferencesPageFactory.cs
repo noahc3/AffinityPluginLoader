@@ -240,42 +240,44 @@ namespace AffinityPluginLoader.UI
             var hasDescription = !string.IsNullOrEmpty(setting.Description);
             var hasRestart = setting.RestartRequired;
             var hasEnvOverride = source.Store.IsOverriddenByEnv(setting.Key);
+            var hasInfo = !string.IsNullOrEmpty(setting.InfoMessage);
 
-            // Simple case: just the label
-            if (!hasDescription && !hasRestart && !hasEnvOverride)
+            // Simple case: just the label (possibly with info icon)
+            if (!hasDescription && !hasRestart && !hasEnvOverride && !hasInfo)
             {
                 var textBlock = new TextBlock { Text = setting.DisplayName, VerticalAlignment = VerticalAlignment.Center };
                 ApplyTextLabelStyle(textBlock, serifAssembly);
                 return textBlock;
             }
 
-            // Complex case: stack with label + optional description/restart/env warning
+            // Complex case: stack with label + optional icons/description/restart
             var panel = new StackPanel { Orientation = Orientation.Vertical, VerticalAlignment = VerticalAlignment.Center };
 
-            // Main label row (may include env warning icon)
-            if (hasEnvOverride)
+            // Main label row (may include env warning icon and/or info icon)
+            var needsLabelRow = hasEnvOverride || hasInfo;
+            if (needsLabelRow)
             {
                 var labelRow = new StackPanel { Orientation = Orientation.Horizontal };
                 var nameBlock = new TextBlock { Text = setting.DisplayName };
                 ApplyTextLabelStyle(nameBlock, serifAssembly);
                 labelRow.Children.Add(nameBlock);
 
-                var envVarName = source.Store.GetEnvVarName(setting.Key);
-                var envValue = source.Store.GetEnvOverrideRaw(setting.Key);
-
-                // Warning triangle matching Affinity's built-in WarningTriangle from core.xaml
-                var warningXaml = @"<Grid xmlns=""http://schemas.microsoft.com/winfx/2006/xaml/presentation""
-                    VerticalAlignment=""Center"" Margin=""5,0,0,0""
-                    ToolTip=""Value overridden by environment variable:&#x0a;" + envVarName + "=" + System.Security.SecurityElement.Escape(envValue) + @"&#x0a;&#x0a;The value shown is the saved value on disk.&#x0a;The env variable value is used until Affinity is relaunched without it."">
-                    <Path HorizontalAlignment=""Center"" VerticalAlignment=""Center"" Data=""M8,0.5 L15.5,15.5 L0.5,15.5"" StrokeThickness=""1"" StrokeLineJoin=""Round"" Stroke=""#FF000000"" Fill=""#FFFFE200"" />
-                    <Path HorizontalAlignment=""Center"" VerticalAlignment=""Center"" Data=""M0.5,4.5 A0.5,0.5 45 1 1 2.25,4.5L1.75,8.5 L1,8.5 M1.5,11.5 A0.5,0.5 0 1 0 1.5,12.5M1.5,11.5 A0.5,0.5 0 1 1 1.5,12.5"" StrokeThickness=""1"" Stroke=""#FF000000"" Fill=""#FF000000"" />
-                </Grid>";
-                try
+                if (hasInfo)
                 {
-                    var warningIcon = (UIElement)XamlReader.Parse(warningXaml);
-                    labelRow.Children.Add(warningIcon);
+                    var infoIcon = CreateInfoIcon(setting.InfoMessage, serifAssembly);
+                    if (infoIcon != null)
+                        labelRow.Children.Add(infoIcon);
                 }
-                catch { }
+
+                if (hasEnvOverride)
+                {
+                    var envVarName = source.Store.GetEnvVarName(setting.Key);
+                    var envValue = source.Store.GetEnvOverrideRaw(setting.Key);
+                    var warningIcon = CreateWarningIcon(envVarName, envValue);
+                    if (warningIcon != null)
+                        labelRow.Children.Add(warningIcon);
+                }
+
                 panel.Children.Add(labelRow);
             }
             else
@@ -313,6 +315,47 @@ namespace AffinityPluginLoader.UI
             }
 
             return panel;
+        }
+
+        // ── Icon helpers ──
+
+        private static UIElement CreateInfoIcon(string message, System.Reflection.Assembly serifAssembly)
+        {
+            try
+            {
+                var xaml = @"<Grid xmlns=""http://schemas.microsoft.com/winfx/2006/xaml/presentation""
+                    VerticalAlignment=""Center"" Margin=""5,0,0,0"" Width=""12"" Height=""12""
+                    ToolTip=""" + System.Security.SecurityElement.Escape(message) + @""">
+                    <Ellipse Width=""12"" Height=""12"" Fill=""#FF4A90D9"" />
+                    <TextBlock Text=""i"" FontSize=""8"" FontWeight=""Bold""
+                               HorizontalAlignment=""Center"" VerticalAlignment=""Center""
+                               Foreground=""#FFFFFFFF"" />
+                </Grid>";
+                return (UIElement)XamlReader.Parse(xaml);
+            }
+            catch (Exception ex)
+            {
+                Logger.Warning($"Failed to create info icon: {ex.Message}");
+                return null;
+            }
+        }
+
+        private static UIElement CreateWarningIcon(string envVarName, string envValue)
+        {
+            try
+            {
+                var xaml = @"<Grid xmlns=""http://schemas.microsoft.com/winfx/2006/xaml/presentation""
+                    VerticalAlignment=""Center"" Margin=""5,0,0,0""
+                    ToolTip=""Value overridden by environment variable:&#x0a;" + envVarName + "=" + System.Security.SecurityElement.Escape(envValue) + @"&#x0a;&#x0a;The value shown is the saved value on disk.&#x0a;The env variable value is used until Affinity is relaunched without it."">
+                    <Path HorizontalAlignment=""Center"" VerticalAlignment=""Center"" Data=""M8,0.5 L15.5,15.5 L0.5,15.5"" StrokeThickness=""1"" StrokeLineJoin=""Round"" Stroke=""#FF000000"" Fill=""#FFFFE200"" />
+                    <Path HorizontalAlignment=""Center"" VerticalAlignment=""Center"" Data=""M0.5,4.5 A0.5,0.5 45 1 1 2.25,4.5L1.75,8.5 L1,8.5 M1.5,11.5 A0.5,0.5 0 1 0 1.5,12.5M1.5,11.5 A0.5,0.5 0 1 1 1.5,12.5"" StrokeThickness=""1"" Stroke=""#FF000000"" Fill=""#FF000000"" />
+                </Grid>";
+                return (UIElement)XamlReader.Parse(xaml);
+            }
+            catch
+            {
+                return null;
+            }
         }
 
         // ── Style helpers ──
