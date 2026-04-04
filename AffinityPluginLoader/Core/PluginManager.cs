@@ -74,6 +74,9 @@ namespace AffinityPluginLoader.Core
             _loadedPlugins.Add(loaderInfo);
             Logger.Info($"Added APL to plugin list: {loaderInfo.Name} v{loaderInfo.Version}");
 
+            // Register APL's own settings (dogfooding the Preferences API)
+            RegisterSettings(AplSettings.PluginId, AplSettings.CreateDefinition());
+
             // Apply loader's own patches (version strings, preferences tab)
             Patches.LoaderPatches.ApplyPatches(harmony, loaderInfo);
 
