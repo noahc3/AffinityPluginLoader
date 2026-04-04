@@ -1,4 +1,5 @@
 using System;
+using System.Collections;
 using System.Linq;
 using System.Reflection;
 using HarmonyLib;
@@ -7,9 +8,6 @@ using AffinityPluginLoader.UI;
 
 namespace AffinityPluginLoader.Patches
 {
-    /// <summary>
-    /// Patches for adding the Plugins tab to Affinity's Preferences dialog
-    /// </summary>
     public static class PreferencesPatches
     {
         public static void ApplyPatches(Harmony harmony)
@@ -18,7 +16,6 @@ namespace AffinityPluginLoader.Patches
             {
                 Logger.Info($"Applying PreferencesDialog patches");
 
-                // Find the Serif.Affinity assembly
                 var serifAssembly = AppDomain.CurrentDomain.GetAssemblies()
                     .FirstOrDefault(a => a.GetName().Name == "Serif.Affinity");
 
@@ -28,24 +25,22 @@ namespace AffinityPluginLoader.Patches
                     return;
                 }
 
-                // Get the PreferencesDialog type
                 var preferencesDialogType = serifAssembly.GetType("Serif.Affinity.UI.Dialogs.Preferences.PreferencesDialog");
                 if (preferencesDialogType == null)
                 {
                     Logger.Error($"ERROR: PreferencesDialog type not found");
                     return;
                 }
-                
-                // Find the constructor - it takes a Type parameter with default value
+
+                // Patch constructor to inject tabs
                 var constructor = preferencesDialogType.GetConstructor(
                     BindingFlags.Public | BindingFlags.Instance,
                     null,
                     new Type[] { typeof(Type) },
                     null);
-                
+
                 if (constructor != null)
                 {
-                    Logger.Info($"Found PreferencesDialog constructor");
                     var postfix = typeof(PreferencesPatches).GetMethod(nameof(PreferencesDialog_Constructor_Postfix), BindingFlags.Static | BindingFlags.Public);
                     harmony.Patch(constructor, postfix: new HarmonyMethod(postfix));
                     Logger.Info($"Patched PreferencesDialog constructor");
@@ -54,6 +49,15 @@ namespace AffinityPluginLoader.Patches
                 {
                     Logger.Error($"ERROR: PreferencesDialog constructor not found");
                 }
+
+                // Patch ApplyChanges to save settings on close
+                var applyChanges = preferencesDialogType.GetMethod("ApplyChanges", BindingFlags.Public | BindingFlags.Instance);
+                if (applyChanges != null)
+                {
+                    var savePostfix = typeof(PreferencesPatches).GetMethod(nameof(ApplyChanges_Postfix), BindingFlags.Static | BindingFlags.Public);
+                    harmony.Patch(applyChanges, postfix: new HarmonyMethod(savePostfix));
+                    Logger.Info($"Patched PreferencesDialog.ApplyChanges for settings save");
+                }
             }
             catch (Exception ex)
             {
@@ -61,82 +65,141 @@ namespace AffinityPluginLoader.Patches
             }
         }
 
-        // Postfix for PreferencesDialog constructor
         public static void PreferencesDialog_Constructor_Postfix(object __instance)
         {
             try
             {
-                Logger.Debug($"PreferencesDialog constructor postfix called");
-
-                // Get the type of the dialog
                 var dialogType = __instance.GetType();
-
-                // Find the property that holds the pages (it's called "Pages")
                 var pagesProperty = dialogType.GetProperty("Pages", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
 
-                if (pagesProperty != null)
+                if (pagesProperty == null) return;
+
+                var pages = pagesProperty.GetValue(__instance);
+                if (pages is not IList pageList) return;
+
+                Logger.Debug($"Found Pages property with {pageList.Count} existing pages");
+
+                var serifAssembly = AppDomain.CurrentDomain.GetAssemblies()
+                    .FirstOrDefault(a => a.GetName().Name == "Serif.Affinity");
+                if (serifAssembly == null) return;
+
+                var separatorType = serifAssembly.GetType("Serif.Affinity.UI.Dialogs.Preferences.PreferencesPageSeparator");
+                var preferencesPageType = serifAssembly.GetType("Serif.Affinity.UI.Dialogs.Preferences.PreferencesPage");
+
+                // Add separator before APL tabs
+                AddSeparator(pageList, separatorType);
+
+                // Inject a tab for each plugin that has settings
+                foreach (var kvp in PluginManager.PluginSettings)
                 {
-                    var pages = pagesProperty.GetValue(__instance);
-                    if (pages is System.Collections.IList pageList)
+                    var pluginId = kvp.Key;
+                    var store = kvp.Value;
+
+                    // Find the plugin info for the display name
+                    var pluginInfo = PluginManager.LoadedPlugins.FirstOrDefault(p => p.PluginId == pluginId);
+                    var pageName = pluginInfo?.Name ?? pluginId;
+
+                    // Check if plugin provides custom XAML
+                    var pluginInstance = PluginManager.GetPluginInstance(pluginId);
+                    string customXaml = pluginInstance?.GetCustomPreferencesXaml();
+
+                    object page;
+                    if (customXaml != null)
                     {
-                        Logger.Debug($"Found Pages property with {pageList.Count} existing pages");
-                        
-                        // Add a separator before the Affinity Plugin Loader tab
-                        var serifAssembly = AppDomain.CurrentDomain.GetAssemblies()
-                            .FirstOrDefault(a => a.GetName().Name == "Serif.Affinity");
-                        
-                        if (serifAssembly != null)
-                        {
-                            var separatorType = serifAssembly.GetType("Serif.Affinity.UI.Dialogs.Preferences.PreferencesPageSeparator");
-                            if (separatorType != null)
-                            {
-                                var separator = Activator.CreateInstance(separatorType);
-                                
-                                // Set Index property for separator
-                                var indexProperty = separatorType.GetProperty("Index");
-                                if (indexProperty != null)
-                                {
-                                    indexProperty.SetValue(separator, pageList.Count);
-                                }
-
-                                pageList.Add(separator);
-                                Logger.Debug($"Added separator to preferences dialog");
-                            }
-                            else
-                            {
-                                Logger.Debug($"PreferencesPageSeparator type not found, skipping separator");
-                            }
-                        }
-                        
-                        // Create plugins page using factory to avoid loading Serif.Affinity.dll early
-                        var pluginsPage = PluginsPreferencesPageFactory.CreatePage();
-                        
-                        if (pluginsPage != null)
-                        {
-                            // Set Index property via reflection
-                            var indexProperty = pluginsPage.GetType().GetProperty("Index");
-                            if (indexProperty != null)
-                            {
-                                indexProperty.SetValue(pluginsPage, pageList.Count);
-                            }
-
-                            pageList.Add(pluginsPage);
-                            Logger.Info($"Added Affinity Plugin Loader tab to preferences dialog");
-                        }
+                        page = CreateCustomXamlPage(customXaml, pageName, preferencesPageType);
                     }
                     else
                     {
-                        Logger.Debug($"Pages property is not IList: {pages?.GetType()?.FullName}");
+                        // Find the definition - re-create it from the plugin or use APL's
+                        var definition = pluginInstance?.DefineSettings();
+                        if (definition == null && pluginId == AplSettings.PluginId)
+                            definition = AplSettings.CreateDefinition();
+                        if (definition == null) continue;
+
+                        page = PluginPreferencesPageFactory.CreatePage(pageName, definition, store);
                     }
-                }
-                else
-                {
-                    Logger.Debug($"Could not find Pages property in PreferencesDialog");
+
+                    if (page != null)
+                    {
+                        SetIndex(page, pageList.Count);
+                        pageList.Add(page);
+                        Logger.Info($"Added preferences tab: {pageName}");
+                    }
                 }
             }
             catch (Exception ex)
             {
                 Logger.Error("Error in PreferencesDialog postfix", ex);
+            }
+        }
+
+        /// <summary>
+        /// Postfix on ApplyChanges — saves all plugin settings to disk.
+        /// </summary>
+        public static void ApplyChanges_Postfix()
+        {
+            try
+            {
+                foreach (var kvp in PluginManager.PluginSettings)
+                {
+                    kvp.Value.Save();
+                    Logger.Debug($"Saved settings for plugin: {kvp.Key}");
+                }
+            }
+            catch (Exception ex)
+            {
+                Logger.Error("Error saving settings on ApplyChanges", ex);
+            }
+        }
+
+        // ── Helpers ──
+
+        private static void AddSeparator(IList pageList, Type separatorType)
+        {
+            if (separatorType == null) return;
+            try
+            {
+                var separator = Activator.CreateInstance(separatorType);
+                SetIndex(separator, pageList.Count);
+                pageList.Add(separator);
+            }
+            catch (Exception ex)
+            {
+                Logger.Debug($"Could not add separator: {ex.Message}");
+            }
+        }
+
+        private static void SetIndex(object page, int index)
+        {
+            page.GetType().GetProperty("Index")?.SetValue(page, index);
+        }
+
+        private static object CreateCustomXamlPage(string xaml, string pageName, Type preferencesPageType)
+        {
+            try
+            {
+                if (preferencesPageType == null) return null;
+
+                var page = (System.Windows.Controls.Grid)Activator.CreateInstance(preferencesPageType);
+                preferencesPageType.GetProperty("PageName")?.SetValue(page, pageName);
+
+                var content = System.Windows.Markup.XamlReader.Parse(xaml) as System.Windows.Controls.Grid;
+                if (content == null) return null;
+
+                // Move children from parsed XAML into the PreferencesPage grid
+                while (content.Children.Count > 0)
+                {
+                    var child = content.Children[0];
+                    content.Children.RemoveAt(0);
+                    page.Children.Add(child);
+                }
+
+                return page;
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"Error creating custom XAML page '{pageName}'", ex);
+                return null;
             }
         }
     }
