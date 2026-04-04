@@ -7,9 +7,9 @@ namespace WineFix
     /// <summary>
     /// WineFix Plugin - Bug fixes for running Affinity under Wine
     /// </summary>
-    public class WineFixPlugin : AffinityPluginLoader.IAffinityPlugin
+    public class WineFixPlugin : AffinityPluginLoader.AffinityPlugin
     {
-        public void Initialize(Harmony harmony)
+        public override void Initialize(Harmony harmony)
         {
             try
             {

@@ -4,18 +4,44 @@ using System.IO;
 using System.Linq;
 using System.Reflection;
 using HarmonyLib;
+using AffinityPluginLoader.Settings;
 
 namespace AffinityPluginLoader.Core
 {
-    /// <summary>
-    /// Manages loading and tracking of Affinity plugins
-    /// </summary>
+    public class PluginInfo
+    {
+        public string Name { get; set; }
+        public string Version { get; set; }
+        public string Author { get; set; }
+        public string AssemblyName { get; set; }
+        public string Description { get; set; }
+        public bool HasSettings { get; set; }
+        public string PluginId { get; set; }
+    }
+
     public static class PluginManager
     {
         private static List<PluginInfo> _loadedPlugins = new List<PluginInfo>();
+        private static Dictionary<string, SettingsStore> _settingsStores = new Dictionary<string, SettingsStore>(StringComparer.OrdinalIgnoreCase);
+        private static Dictionary<string, AffinityPlugin> _pluginInstances = new Dictionary<string, AffinityPlugin>(StringComparer.OrdinalIgnoreCase);
         private static bool _initialized = false;
+        private static string _configDirectory;
 
         public static IReadOnlyList<PluginInfo> LoadedPlugins => _loadedPlugins.AsReadOnly();
+
+        public static SettingsStore GetSettingsStore(string pluginId)
+        {
+            _settingsStores.TryGetValue(pluginId, out var store);
+            return store;
+        }
+
+        public static AffinityPlugin GetPluginInstance(string pluginId)
+        {
+            _pluginInstances.TryGetValue(pluginId, out var instance);
+            return instance;
+        }
+
+        public static IReadOnlyDictionary<string, SettingsStore> PluginSettings => _settingsStores;
 
         public static void Initialize(Harmony harmony)
         {
@@ -23,6 +49,11 @@ namespace AffinityPluginLoader.Core
                 return;
 
             Logger.Info($"PluginManager initializing...");
+
+            // Determine config directory: <install-dir>/apl/config
+            var loaderPath = Assembly.GetExecutingAssembly().Location;
+            var loaderDir = Path.GetDirectoryName(loaderPath);
+            _configDirectory = Path.Combine(loaderDir, "apl", "config");
 
             // Add APL itself as the first plugin
             var loaderAssembly = Assembly.GetExecutingAssembly();
@@ -37,7 +68,8 @@ namespace AffinityPluginLoader.Core
                 Version = FormatVersion(loaderVersionAttr?.InformationalVersion, loaderAssembly.GetName().Version),
                 Author = loaderCompanyAttr?.Company ?? "Unknown",
                 AssemblyName = loaderAssembly.FullName,
-                Description = loaderDescAttr?.Description ?? ""
+                Description = loaderDescAttr?.Description ?? "",
+                PluginId = "apl"
             };
             _loadedPlugins.Add(loaderInfo);
             Logger.Info($"Added APL to plugin list: {loaderInfo.Name} v{loaderInfo.Version}");
@@ -52,14 +84,34 @@ namespace AffinityPluginLoader.Core
             Logger.Info($"PluginManager initialized with {_loadedPlugins.Count} plugins");
         }
 
+        /// <summary>
+        /// Register settings for a plugin (called by APL for its own settings, or during plugin load).
+        /// </summary>
+        public static void RegisterSettings(string pluginId, PluginSettingsDefinition definition)
+        {
+            if (definition == null)
+                return;
+
+            var store = new SettingsStore(definition, _configDirectory);
+            store.AssignSections();
+            store.Load();
+            _settingsStores[pluginId] = store;
+
+            // Update PluginInfo
+            var info = _loadedPlugins.FirstOrDefault(p => p.PluginId == pluginId);
+            if (info != null)
+                info.HasSettings = true;
+
+            Logger.Info($"Registered settings for plugin: {pluginId}");
+        }
+
         private static void LoadPlugins(Harmony harmony)
         {
             try
             {
-                // Get the directory where AffinityPluginLoader.dll is located
-                string loaderPath = Assembly.GetExecutingAssembly().Location;
-                string loaderDir = Path.GetDirectoryName(loaderPath);
-                string pluginsDir = Path.Combine(loaderDir, "plugins");
+                var loaderPath = Assembly.GetExecutingAssembly().Location;
+                var loaderDir = Path.GetDirectoryName(loaderPath);
+                var pluginsDir = Path.Combine(loaderDir, "plugins");
 
                 Logger.Debug($"Looking for plugins in: {pluginsDir}");
 
@@ -70,7 +122,6 @@ namespace AffinityPluginLoader.Core
                     return;
                 }
 
-                // Load all DLLs in the plugins directory
                 var pluginFiles = Directory.GetFiles(pluginsDir, "*.dll");
                 Logger.Debug($"Found {pluginFiles.Length} DLL files in plugins directory");
 
@@ -96,25 +147,28 @@ namespace AffinityPluginLoader.Core
         {
             Logger.Debug($"Loading plugin: {Path.GetFileName(pluginPath)}");
 
-            // Load the assembly
             var assembly = Assembly.LoadFrom(pluginPath);
             var productAttr = assembly.GetCustomAttribute<AssemblyProductAttribute>();
             var versionAttr = assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>();
             var companyAttr = assembly.GetCustomAttribute<AssemblyCompanyAttribute>();
             var descAttr = assembly.GetCustomAttribute<AssemblyDescriptionAttribute>();
 
+            var pluginName = productAttr?.Product ?? assembly.GetName().Name;
+            var pluginId = pluginName.ToLowerInvariant().Replace(' ', '-');
+
             var pluginInfo = new PluginInfo
             {
-                Name = productAttr?.Product ?? assembly.GetName().Name,
+                Name = pluginName,
                 Version = FormatVersion(versionAttr?.InformationalVersion, assembly.GetName().Version),
                 Author = companyAttr?.Company ?? "Unknown",
                 AssemblyName = assembly.FullName,
-                Description = descAttr?.Description ?? ""
+                Description = descAttr?.Description ?? "",
+                PluginId = pluginId
             };
 
-            // Look for IAffinityPlugin interface implementation
+            // Find AffinityPlugin implementations
             var pluginTypes = assembly.GetTypes()
-                .Where(t => t.GetInterface("IAffinityPlugin") != null)
+                .Where(t => !t.IsAbstract && typeof(AffinityPlugin).IsAssignableFrom(t))
                 .ToList();
 
             if (pluginTypes.Any())
@@ -123,9 +177,16 @@ namespace AffinityPluginLoader.Core
                 {
                     try
                     {
-                        var plugin = Activator.CreateInstance(pluginType) as IAffinityPlugin;
-                        plugin?.Initialize(harmony);
+                        var plugin = (AffinityPlugin)Activator.CreateInstance(pluginType);
+                        plugin.Initialize(harmony);
                         Logger.Info($"Initialized plugin: {pluginType.Name}");
+
+                        _pluginInstances[pluginId] = plugin;
+
+                        // Wire up settings
+                        var settingsDef = plugin.DefineSettings();
+                        if (settingsDef != null)
+                            RegisterSettings(pluginId, settingsDef);
                     }
                     catch (Exception ex)
                     {
@@ -135,7 +196,7 @@ namespace AffinityPluginLoader.Core
             }
             else
             {
-                Logger.Info($"No IAffinityPlugin implementation found, plugin loaded but not initialized");
+                Logger.Info($"No AffinityPlugin implementation found in {Path.GetFileName(pluginPath)}");
             }
 
             _loadedPlugins.Add(pluginInfo);
@@ -147,43 +208,20 @@ namespace AffinityPluginLoader.Core
         /// </summary>
         private static string FormatVersion(string informationalVersion, Version assemblyVersion)
         {
-            // If we have an informational version, process it
             if (!string.IsNullOrEmpty(informationalVersion))
             {
-                // Check if it contains a git hash (format: "version+hash")
                 int plusIndex = informationalVersion.IndexOf('+');
                 if (plusIndex > 0 && plusIndex < informationalVersion.Length - 1)
                 {
                     string version = informationalVersion.Substring(0, plusIndex);
                     string hash = informationalVersion.Substring(plusIndex + 1);
-
-                    // Truncate hash to 8 chars if longer
                     if (hash.Length > 8)
-                    {
                         hash = hash.Substring(0, 8);
-                    }
-
                     return $"{version}+{hash}";
                 }
-
-                // No git hash, return as-is
                 return informationalVersion;
             }
-
-            // Fallback to assembly version
             return assemblyVersion?.ToString() ?? "0.0.0";
         }
-    }
-
-    /// <summary>
-    /// Information about a loaded plugin
-    /// </summary>
-    public class PluginInfo
-    {
-        public string Name { get; set; }
-        public string Version { get; set; }
-        public string Author { get; set; }
-        public string AssemblyName { get; set; }
-        public string Description { get; set; }
     }
 }
