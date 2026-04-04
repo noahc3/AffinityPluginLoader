@@ -155,7 +155,23 @@ namespace AffinityPluginLoader.UI
 
         private static UIElement CreateStringRow(StringSetting setting, SettingsBindingSource source, System.Reflection.Assembly serifAssembly)
         {
-            var textBox = new TextBox { Width = 210, Margin = new Thickness(2) };
+            TextBox textBox;
+            try
+            {
+                // Create via XAML so DynamicResource bindings to Serif scheme brushes work
+                var xaml = @"<TextBox xmlns=""http://schemas.microsoft.com/winfx/2006/xaml/presentation""
+                                     xmlns:x=""http://schemas.microsoft.com/winfx/2006/xaml""
+                                     xmlns:schemes=""clr-namespace:Serif.Affinity.Resources.Schemes;assembly=Serif.Affinity""
+                                     Width=""210"" Margin=""2"" BorderThickness=""1""
+                                     Foreground=""{DynamicResource {x:Static schemes:SchemeManager.Brush_BaseForeground}}""
+                                     Background=""{DynamicResource {x:Static schemes:SchemeManager.Brush_ComboBoxEditableBackground}}""
+                                     BorderBrush=""{DynamicResource {x:Static schemes:SchemeManager.Brush_ComboBoxBorder}}"" />";
+                textBox = (TextBox)XamlReader.Parse(xaml);
+            }
+            catch
+            {
+                textBox = new TextBox { Width = 210, Margin = new Thickness(2) };
+            }
             textBox.SetBinding(TextBox.TextProperty, source.CreateBinding(setting.Key));
             return WrapInRow(setting, textBox, serifAssembly, source);
         }
@@ -246,15 +262,20 @@ namespace AffinityPluginLoader.UI
 
                 var envVarName = source.Store.GetEnvVarName(setting.Key);
                 var envValue = source.Store.GetEnvOverrideRaw(setting.Key);
-                var warningText = new TextBlock
+
+                // Warning triangle matching Affinity's built-in WarningTriangle from core.xaml
+                var warningXaml = @"<Grid xmlns=""http://schemas.microsoft.com/winfx/2006/xaml/presentation""
+                    VerticalAlignment=""Center"" Margin=""5,0,0,0""
+                    ToolTip=""Value overridden by environment variable:&#x0a;" + envVarName + "=" + System.Security.SecurityElement.Escape(envValue) + @"&#x0a;&#x0a;The value shown is the saved value on disk.&#x0a;The env variable value is used until Affinity is relaunched without it."">
+                    <Path HorizontalAlignment=""Center"" VerticalAlignment=""Center"" Data=""M8,0.5 L15.5,15.5 L0.5,15.5"" StrokeThickness=""1"" StrokeLineJoin=""Round"" Stroke=""#FF000000"" Fill=""#FFFFE200"" />
+                    <Path HorizontalAlignment=""Center"" VerticalAlignment=""Center"" Data=""M0.5,4.5 A0.5,0.5 45 1 1 2.25,4.5L1.75,8.5 L1,8.5 M1.5,11.5 A0.5,0.5 0 1 0 1.5,12.5M1.5,11.5 A0.5,0.5 0 1 1 1.5,12.5"" StrokeThickness=""1"" Stroke=""#FF000000"" Fill=""#FF000000"" />
+                </Grid>";
+                try
                 {
-                    Text = " ⚠",
-                    Foreground = System.Windows.Media.Brushes.Orange,
-                    FontSize = 12,
-                    VerticalAlignment = VerticalAlignment.Center,
-                    ToolTip = $"Value overridden by environment variable:\n{envVarName}={envValue}\n\nThe value shown in this dialog is the saved value on disk.\nThe environment variable value will be used until Affinity is relaunched without it."
-                };
-                labelRow.Children.Add(warningText);
+                    var warningIcon = (UIElement)XamlReader.Parse(warningXaml);
+                    labelRow.Children.Add(warningIcon);
+                }
+                catch { }
                 panel.Children.Add(labelRow);
             }
             else
@@ -272,6 +293,7 @@ namespace AffinityPluginLoader.UI
                     FontSize = 9,
                     MaxWidth = 470,
                     TextWrapping = TextWrapping.Wrap,
+                    HorizontalAlignment = HorizontalAlignment.Left,
                     Margin = new Thickness(0, 4, 0, 0)
                 };
                 ApplyMutedForeground(descBlock, serifAssembly);
@@ -280,14 +302,14 @@ namespace AffinityPluginLoader.UI
 
             if (hasRestart)
             {
-                var restartLabel = new Label
+                var restartBlock = new TextBlock
                 {
-                    Content = "*Restart required",
+                    Text = "*Restart required",
                     FontSize = 9,
                     Margin = new Thickness(0, 4, 0, 0)
                 };
-                ApplyMutedForeground(restartLabel, serifAssembly);
-                panel.Children.Add(restartLabel);
+                ApplyMutedForeground(restartBlock, serifAssembly);
+                panel.Children.Add(restartBlock);
             }
 
             return panel;
@@ -342,16 +364,15 @@ namespace AffinityPluginLoader.UI
         {
             try
             {
-                // Try to get SchemeManager.Brush_LabelForeground
                 var schemeType = serifAssembly?.GetType("Serif.Affinity.Resources.Schemes.SchemeManager");
-                var brushField = schemeType?.GetField("Brush_LabelForeground", System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Static);
-                if (brushField != null)
+                var brushField = schemeType?.GetProperty("Brush_LabelForeground", System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Static);
+                var resourceKey = brushField?.GetValue(null);
+                if (resourceKey != null)
                 {
-                    var resourceKey = brushField.GetValue(null);
                     if (element is TextBlock tb)
                         tb.SetResourceReference(TextBlock.ForegroundProperty, resourceKey);
-                    else if (element is Label lbl)
-                        lbl.SetResourceReference(Control.ForegroundProperty, resourceKey);
+                    else if (element is Control ctrl)
+                        ctrl.SetResourceReference(Control.ForegroundProperty, resourceKey);
                     return;
                 }
             }
@@ -360,8 +381,8 @@ namespace AffinityPluginLoader.UI
             // Fallback
             if (element is TextBlock tb2)
                 tb2.Foreground = System.Windows.Media.Brushes.Gray;
-            else if (element is Label lbl2)
-                lbl2.Foreground = System.Windows.Media.Brushes.Gray;
+            else if (element is Control ctrl2)
+                ctrl2.Foreground = System.Windows.Media.Brushes.Gray;
         }
 
         private static ResourceDictionary _cachedStyles;
@@ -408,7 +429,8 @@ namespace AffinityPluginLoader.UI
             set
             {
                 Store.SetValue(key, value);
-                OnPropertyChanged($"Item[{key}]");
+                // Fire Item[] so all indexer bindings re-evaluate
+                OnPropertyChanged("Item[]");
             }
         }
 
