@@ -12,39 +12,46 @@ namespace AffinityPluginLoader.Core
         // Setting keys
         public const string ForceWpfControls = "force_wpf_controls";
 
-        // Plugin list XAML shown via InlineXaml element
+        // Plugin list XAML — each plugin rendered as its own PanelStyle box
         private const string PluginListXaml = @"
-<Border xmlns=""http://schemas.microsoft.com/winfx/2006/xaml/presentation""
-        BorderThickness=""0""
-        Margin=""10,1,10,10"">
-    <ListBox BorderThickness=""0"" Padding=""4""
-             ItemsSource=""{Binding}"">
-        <ListBox.ItemContainerStyle>
-            <Style TargetType=""ListBoxItem"">
-                <Setter Property=""Template"">
-                    <Setter.Value>
-                        <ControlTemplate TargetType=""ListBoxItem"">
-                            <StackPanel Margin=""5"">
-                                <TextBlock Text=""{Binding Name}""
-                                           FontWeight=""Bold"" FontSize=""11""
-                                           Foreground=""White""/>
-                                <TextBlock Foreground=""White"" FontSize=""9"" Margin=""0,2,0,0"">
-                                    <Run Text=""Version: ""/><Run Text=""{Binding Version}""/>
-                                </TextBlock>
-                                <TextBlock Foreground=""White"" FontSize=""9"" Margin=""0,2,0,0"">
-                                    <Run Text=""Author: ""/><Run Text=""{Binding Author}""/>
-                                </TextBlock>
-                                <TextBlock Foreground=""LightGray"" FontSize=""9"" Margin=""0,2,0,0"">
-                                    <Run Text=""{Binding Description}""/>
-                                </TextBlock>
-                            </StackPanel>
-                        </ControlTemplate>
-                    </Setter.Value>
-                </Setter>
-            </Style>
-        </ListBox.ItemContainerStyle>
-    </ListBox>
-</Border>";
+<ItemsControl xmlns=""http://schemas.microsoft.com/winfx/2006/xaml/presentation""
+              xmlns:x=""http://schemas.microsoft.com/winfx/2006/xaml""
+              xmlns:schemes=""clr-namespace:Serif.Affinity.Resources.Schemes;assembly=Serif.Affinity""
+              ItemsSource=""{Binding}""
+              Background=""#00FFFFFF"" BorderThickness=""0"" IsTabStop=""False"">
+    <ItemsControl.ItemTemplate>
+        <DataTemplate>
+            <Border Margin=""10,1,10,1""
+                    Background=""{DynamicResource {x:Static schemes:SchemeManager.Brush_DialogBackground}}""
+                    CornerRadius=""3"">
+                <Grid Margin=""10"">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width=""*"" />
+                        <ColumnDefinition Width=""Auto"" />
+                    </Grid.ColumnDefinitions>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height=""Auto"" />
+                        <RowDefinition Height=""Auto"" />
+                        <RowDefinition Height=""Auto"" />
+                    </Grid.RowDefinitions>
+                    <StackPanel Orientation=""Horizontal"">
+                        <TextBlock FontWeight=""Bold"" Text=""{Binding Name}""
+                                   Foreground=""{DynamicResource {x:Static schemes:SchemeManager.Brush_BaseForeground}}"" />
+                        <TextBlock Margin=""6,0,0,0"" FontSize=""9"" VerticalAlignment=""Center""
+                                   Text=""{Binding Version, StringFormat=v{0}}""
+                                   Foreground=""{DynamicResource {x:Static schemes:SchemeManager.Brush_LabelForeground}}"" />
+                    </StackPanel>
+                    <TextBlock Grid.Row=""1"" Text=""{Binding Author}"" FontSize=""9""
+                               Foreground=""{DynamicResource {x:Static schemes:SchemeManager.Brush_LabelForeground}}"" />
+                    <TextBlock Grid.Row=""2"" Grid.ColumnSpan=""2"" TextWrapping=""Wrap""
+                               Margin=""0,8,0,0""
+                               Text=""{Binding Description}""
+                               Foreground=""{DynamicResource {x:Static schemes:SchemeManager.Brush_BaseForeground}}"" />
+                </Grid>
+            </Border>
+        </DataTemplate>
+    </ItemsControl.ItemTemplate>
+</ItemsControl>";
 
         public static PluginSettingsDefinition CreateDefinition()
         {
