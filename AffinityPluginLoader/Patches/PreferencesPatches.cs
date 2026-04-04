@@ -50,13 +50,13 @@ namespace AffinityPluginLoader.Patches
                     Logger.Error($"ERROR: PreferencesDialog constructor not found");
                 }
 
-                // Patch ApplyChanges to save settings on close
-                var applyChanges = preferencesDialogType.GetMethod("ApplyChanges", BindingFlags.Public | BindingFlags.Instance);
-                if (applyChanges != null)
+                // Patch OnClosed to save settings when dialog closes
+                var onClosed = preferencesDialogType.GetMethod("OnClosed", BindingFlags.NonPublic | BindingFlags.Instance);
+                if (onClosed != null)
                 {
-                    var savePostfix = typeof(PreferencesPatches).GetMethod(nameof(ApplyChanges_Postfix), BindingFlags.Static | BindingFlags.Public);
-                    harmony.Patch(applyChanges, postfix: new HarmonyMethod(savePostfix));
-                    Logger.Info($"Patched PreferencesDialog.ApplyChanges for settings save");
+                    var savePostfix = typeof(PreferencesPatches).GetMethod(nameof(OnClosed_Postfix), BindingFlags.Static | BindingFlags.Public);
+                    harmony.Patch(onClosed, postfix: new HarmonyMethod(savePostfix));
+                    Logger.Info($"Patched PreferencesDialog.OnClosed for settings save");
                 }
             }
             catch (Exception ex)
@@ -134,9 +134,9 @@ namespace AffinityPluginLoader.Patches
         }
 
         /// <summary>
-        /// Postfix on ApplyChanges — saves all plugin settings to disk.
+        /// Postfix on OnClosed — saves all plugin settings to disk.
         /// </summary>
-        public static void ApplyChanges_Postfix()
+        public static void OnClosed_Postfix()
         {
             try
             {
