@@ -98,6 +98,7 @@ namespace AffinityPluginLoader.Core
             var store = new SettingsStore(definition, _configDirectory);
             store.AssignSections();
             store.Load();
+            store.Save(); // Write defaults to disk so users can edit the TOML manually
             _settingsStores[pluginId] = store;
 
             // Update PluginInfo
