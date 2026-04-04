@@ -41,7 +41,8 @@ namespace AffinityPluginLoader.Settings
         }
 
         public PluginSettingsDefinition AddBool(string key, string displayName,
-            bool defaultValue = false, string description = null, bool restartRequired = false)
+            bool defaultValue = false, string description = null, bool restartRequired = false,
+            string infoMessage = null)
         {
             Elements.Add(new BoolSetting
             {
@@ -49,13 +50,15 @@ namespace AffinityPluginLoader.Settings
                 DisplayName = displayName,
                 DefaultValue = defaultValue,
                 Description = description,
-                RestartRequired = restartRequired
+                RestartRequired = restartRequired,
+                InfoMessage = infoMessage
             });
             return this;
         }
 
         public PluginSettingsDefinition AddString(string key, string displayName,
-            string defaultValue = "", string description = null, bool restartRequired = false)
+            string defaultValue = "", string description = null, bool restartRequired = false,
+            string infoMessage = null)
         {
             Elements.Add(new StringSetting
             {
@@ -63,14 +66,16 @@ namespace AffinityPluginLoader.Settings
                 DisplayName = displayName,
                 DefaultValue = defaultValue,
                 Description = description,
-                RestartRequired = restartRequired
+                RestartRequired = restartRequired,
+                InfoMessage = infoMessage
             });
             return this;
         }
 
         public PluginSettingsDefinition AddEnum(string key, string displayName,
             List<EnumOption> options, string defaultValue = null,
-            string description = null, bool restartRequired = false)
+            string description = null, bool restartRequired = false,
+            string infoMessage = null)
         {
             Elements.Add(new EnumSetting
             {
@@ -79,14 +84,16 @@ namespace AffinityPluginLoader.Settings
                 Options = options,
                 DefaultValue = defaultValue ?? (options.Count > 0 ? options[0].Value : ""),
                 Description = description,
-                RestartRequired = restartRequired
+                RestartRequired = restartRequired,
+                InfoMessage = infoMessage
             });
             return this;
         }
 
         public PluginSettingsDefinition AddSlider(string key, string displayName,
             double minimum, double maximum, double defaultValue = 0,
-            int precision = 0, string description = null, bool restartRequired = false)
+            int precision = 0, string description = null, bool restartRequired = false,
+            string infoMessage = null)
         {
             Elements.Add(new SliderSetting
             {
@@ -97,14 +104,16 @@ namespace AffinityPluginLoader.Settings
                 DefaultValue = defaultValue,
                 Precision = precision,
                 Description = description,
-                RestartRequired = restartRequired
+                RestartRequired = restartRequired,
+                InfoMessage = infoMessage
             });
             return this;
         }
 
         public PluginSettingsDefinition AddDropdownSlider(string key, string displayName,
             double minimum, double maximum, double defaultValue = 0,
-            int precision = 0, string description = null, bool restartRequired = false)
+            int precision = 0, string description = null, bool restartRequired = false,
+            string infoMessage = null)
         {
             Elements.Add(new DropdownSliderSetting
             {
@@ -115,7 +124,8 @@ namespace AffinityPluginLoader.Settings
                 DefaultValue = defaultValue,
                 Precision = precision,
                 Description = description,
-                RestartRequired = restartRequired
+                RestartRequired = restartRequired,
+                InfoMessage = infoMessage
             });
             return this;
         }

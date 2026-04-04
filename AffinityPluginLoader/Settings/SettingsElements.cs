@@ -39,6 +39,11 @@ namespace AffinityPluginLoader.Settings
         public string Description { get; set; }
         public bool RestartRequired { get; set; }
         public string Section { get; set; }
+        /// <summary>
+        /// Optional info message. When non-null, shows an (i) icon next to the setting name
+        /// with this text as a tooltip. Use for contextual hints like "Only applies on Wayland."
+        /// </summary>
+        public string InfoMessage { get; set; }
     }
 
     // ── Typed settings ──
