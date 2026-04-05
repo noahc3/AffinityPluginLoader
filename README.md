@@ -1,4 +1,4 @@
-# Affinity Plugin Loader
+### Affinity Plugin Loader
 
 > [!NOTE]
 > *Information on WineFix has moved, see [WineFix/](WineFix#winefix)*
