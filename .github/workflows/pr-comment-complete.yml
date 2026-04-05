@@ -35,6 +35,7 @@ jobs:
         with:
           name: commit_sha
           run-id: ${{ github.event.workflow_run.id }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Get commit and run info
         id: run-info
