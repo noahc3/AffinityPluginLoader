@@ -143,7 +143,17 @@ jobs:
 
       - name: Get short commit hash
         id: commit
-        run: echo "short_sha=$(echo ${{ github.event.pull_request.head.sha }} | cut -c1-7)" >> $GITHUB_OUTPUT
+        env:
+          HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          echo "short_sha=$(echo "$HEAD_SHA" | cut -c1-7)" >> $GITHUB_OUTPUT
+          echo "$HEAD_SHA" > commit_sha.txt
+
+      - name: Upload commit SHA
+        uses: actions/upload-artifact@v4
+        with:
+          name: commit_sha
+          path: commit_sha.txt
 
       - name: Download AffinityBootstrap artifact
         uses: actions/download-artifact@v4
