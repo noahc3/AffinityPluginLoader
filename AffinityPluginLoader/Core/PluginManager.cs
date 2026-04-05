@@ -80,7 +80,7 @@ namespace AffinityPluginLoader.Core
             // Apply loader's own patches (version strings, preferences tab)
             Patches.LoaderPatches.ApplyPatches(harmony, loaderInfo);
 
-            // Load plugins from ./plugins/ directory
+            // Load plugins from ./apl/plugins/ directory
             LoadPlugins(harmony);
 
             _initialized = true;
@@ -115,7 +115,7 @@ namespace AffinityPluginLoader.Core
             {
                 var loaderPath = Assembly.GetExecutingAssembly().Location;
                 var loaderDir = Path.GetDirectoryName(loaderPath);
-                var pluginsDir = Path.Combine(loaderDir, "plugins");
+                var pluginsDir = Path.Combine(loaderDir, "apl", "plugins");
 
                 Logger.Debug($"Looking for plugins in: {pluginsDir}");
 
