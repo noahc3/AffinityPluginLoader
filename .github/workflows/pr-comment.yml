@@ -31,8 +31,10 @@ jobs:
       
       - name: Get commit info
         id: commit
+        env:
+          HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
         run: |
-          echo "short_sha=$(echo ${{ github.event.workflow_run.head_sha }} | cut -c1-7)" >> $GITHUB_OUTPUT
+          echo "short_sha=$(echo "$HEAD_SHA" | cut -c1-7)" >> $GITHUB_OUTPUT
           echo "run_id=${{ github.event.workflow_run.id }}" >> $GITHUB_OUTPUT
 
       - name: Find existing comment
