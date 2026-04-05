@@ -1,170 +1,143 @@
 using System;
+using System.Collections.Generic;
 using System.Drawing;
-using System.Drawing.Imaging;
 using System.Linq;
 using System.Reflection;
-using System.Windows;
+using System.Reflection.Emit;
 using System.Windows.Interop;
-using System.Windows.Media;
 using HarmonyLib;
 using AffinityPluginLoader.Core;
 
 namespace WineFix.Patches
 {
     /// <summary>
-    /// Fixes color picker zoom preview on Wayland by capturing the DocumentView/canvas instead of the full screen.
-    /// On Wayland, CopyFromScreen doesn't work properly, resulting in a black preview.
-    /// This patch captures the RenderControl's native window (HwndHost) using Win32 BitBlt.
+    /// Fixes color picker zoom preview on Wayland by replacing CopyFromScreen
+    /// (which returns black on Wayland) with a BitBlt from the RenderControl's
+    /// native window. Uses a Harmony transpiler so the original SaveAllScreens
+    /// flow is preserved — same bitmap lifecycle, same timing, zero per-frame overhead.
     /// </summary>
     public static class ColorPickerWaylandPatch
     {
-        private static Type _documentViewServiceType;
-        private static Type _screenHelperType;
-        private static Type _win32MethodsType;
-        private static Type _rectType;
+        // Win32 methods (from Serif.Windows.Win32Methods)
         private static MethodInfo _getDCMethod;
         private static MethodInfo _releaseDCMethod;
         private static MethodInfo _bitBltMethod;
         private static MethodInfo _getWindowRectMethod;
+
+        // Cached reflection
+        private static Type _rectType;
+        private static FieldInfo _rectLeftField, _rectTopField, _rectRightField, _rectBottomField;
+        private static MethodInfo _getServiceGenericMethod;
+        private static PropertyInfo _currentViewProperty;
+        private static PropertyInfo _renderControlProperty; // lazily cached (needs runtime type)
+        private static ConstructorInfo _colourRGBConstructor;
+
+        // State
+        private static IntPtr _hwnd = IntPtr.Zero;
+        private static bool _pickerActive = false;
         private static bool _useExactPixelColor = false;
+        private static double _monitorScale = 1.0;
 
         public static void ApplyPatches(Harmony harmony)
         {
             try
             {
-                Logger.Info($"Applying ColorPickerWayland patch...");
+                Logger.Info("Applying ColorPickerWayland patch...");
 
-                // Check environment variable for color picker mode
-                string pickerMode = Environment.GetEnvironmentVariable("APL_PICKER_VALUE");
-                if (!string.IsNullOrEmpty(pickerMode))
-                {
-                    _useExactPixelColor = pickerMode.Equals("EXACT", StringComparison.OrdinalIgnoreCase);
-                    Logger.Info($"APL_PICKER_VALUE={pickerMode}, using {(_useExactPixelColor ? "EXACT" : "NATIVE")} color mode");
-                }
-                else
-                {
-                    Logger.Info($"APL_PICKER_VALUE not set, using NATIVE color mode (default)");
-                }
-
-                // Find the Serif.Affinity assembly
                 var serifAssembly = AppDomain.CurrentDomain.GetAssemblies()
                     .FirstOrDefault(a => a.GetName().Name == "Serif.Affinity");
-
-                if (serifAssembly == null)
-                {
-                    Logger.Error($"ERROR: Serif.Affinity assembly not found");
-                    return;
-                }
-
-                // Get the ScreenHelper type
-                _screenHelperType = serifAssembly.GetType("Serif.Affinity.UI.Controls.ScreenHelper");
-                if (_screenHelperType == null)
-                {
-                    Logger.Error($"ERROR: ScreenHelper type not found");
-                    return;
-                }
-
-                // Get Win32Methods type for Win32 API calls (in Serif.Windows assembly)
                 var serifWindowsAssembly = AppDomain.CurrentDomain.GetAssemblies()
                     .FirstOrDefault(a => a.GetName().Name == "Serif.Windows");
-                if (serifWindowsAssembly == null)
+                var personaAssembly = AppDomain.CurrentDomain.GetAssemblies()
+                    .FirstOrDefault(a => a.GetName().Name == "Serif.Interop.Persona");
+
+                if (serifAssembly == null || serifWindowsAssembly == null)
                 {
-                    Logger.Error($"ERROR: Serif.Windows assembly not found");
+                    Logger.Error("Required assemblies not found");
                     return;
                 }
 
-                _win32MethodsType = serifWindowsAssembly.GetType("Serif.Windows.Win32Methods");
-                if (_win32MethodsType == null)
-                {
-                    Logger.Error($"ERROR: Win32Methods type not found");
-                    return;
-                }
-
-                _getDCMethod = _win32MethodsType.GetMethod("GetDC", BindingFlags.Public | BindingFlags.Static);
-                _releaseDCMethod = _win32MethodsType.GetMethod("ReleaseDC", BindingFlags.Public | BindingFlags.Static);
-                _bitBltMethod = _win32MethodsType.GetMethod("BitBlt", BindingFlags.Public | BindingFlags.Static);
-                _getWindowRectMethod = _win32MethodsType.GetMethod("GetWindowRect", BindingFlags.Public | BindingFlags.Static);
+                // Cache Win32Methods
+                var win32 = serifWindowsAssembly.GetType("Serif.Windows.Win32Methods");
+                _getDCMethod = win32?.GetMethod("GetDC", BindingFlags.Public | BindingFlags.Static);
+                _releaseDCMethod = win32?.GetMethod("ReleaseDC", BindingFlags.Public | BindingFlags.Static);
+                _bitBltMethod = win32?.GetMethod("BitBlt", BindingFlags.Public | BindingFlags.Static);
+                _getWindowRectMethod = win32?.GetMethod("GetWindowRect", BindingFlags.Public | BindingFlags.Static);
 
                 if (_getDCMethod == null || _releaseDCMethod == null || _bitBltMethod == null || _getWindowRectMethod == null)
                 {
-                    Logger.Error($"ERROR: Win32Methods API methods not found");
+                    Logger.Error("Win32Methods API methods not found");
                     return;
                 }
 
-                // Get RECT type
+                // Cache RECT type and fields
                 _rectType = serifWindowsAssembly.GetType("Serif.Windows.RECT");
-                if (_rectType == null)
+                if (_rectType != null)
                 {
-                    Logger.Error($"ERROR: RECT type not found");
-                    return;
+                    _rectLeftField = _rectType.GetField("Left");
+                    _rectTopField = _rectType.GetField("Top");
+                    _rectRightField = _rectType.GetField("Right");
+                    _rectBottomField = _rectType.GetField("Bottom");
                 }
 
-                // Get IDocumentViewService type
-                var personaAssembly = AppDomain.CurrentDomain.GetAssemblies()
-                    .FirstOrDefault(a => a.GetName().Name == "Serif.Interop.Persona");
+                // Cache service lookup for RenderControl discovery
                 if (personaAssembly != null)
                 {
-                    _documentViewServiceType = personaAssembly.GetType("Serif.Interop.Persona.Services.IDocumentViewService");
-                }
+                    var docViewServiceType = personaAssembly.GetType("Serif.Interop.Persona.Services.IDocumentViewService");
+                    if (docViewServiceType != null)
+                        _currentViewProperty = docViewServiceType.GetProperty("CurrentView");
 
-                // Patch SaveAllScreens(int, int, int, int) method
-                var saveAllScreensMethod = _screenHelperType.GetMethod("SaveAllScreens",
-                    BindingFlags.Public | BindingFlags.Static,
-                    null,
-                    new Type[] { typeof(int), typeof(int), typeof(int), typeof(int) },
-                    null);
+                    var colourRGBType = personaAssembly.GetType("Serif.Interop.Persona.Colours.ColourRGB");
+                    if (colourRGBType != null)
+                        _colourRGBConstructor = colourRGBType.GetConstructor(new[] { typeof(double), typeof(double), typeof(double), typeof(double) });
 
-                if (saveAllScreensMethod != null)
-                {
-                    var prefix = typeof(ColorPickerWaylandPatch).GetMethod(nameof(SaveAllScreens_Prefix),
-                        BindingFlags.Static | BindingFlags.Public);
-                    harmony.Patch(saveAllScreensMethod, prefix: new HarmonyMethod(prefix));
-                    Logger.Info($"Patched ScreenHelper.SaveAllScreens to capture canvas instead of screen");
-                }
-                else
-                {
-                    Logger.Error($"ERROR: SaveAllScreens method not found");
-                }
-
-                // Patch CreateZoomImage to override color in EXACT mode
-                var createZoomImageMethod = _screenHelperType.GetMethod("CreateZoomImage",
-                    BindingFlags.Public | BindingFlags.Static);
-
-                if (createZoomImageMethod != null)
-                {
-                    var postfix = typeof(ColorPickerWaylandPatch).GetMethod(nameof(CreateZoomImage_Postfix),
-                        BindingFlags.Static | BindingFlags.Public);
-                    harmony.Patch(createZoomImageMethod, postfix: new HarmonyMethod(postfix));
-                    Logger.Info($"Patched ScreenHelper.CreateZoomImage for EXACT color mode support");
-                }
-                else
-                {
-                    Logger.Warning($"WARNING: CreateZoomImage method not found");
-                }
-
-                // Patch ColourPickerMagnifier.UpdateWindowLocation to force bitmap refresh
-                var colourPickerMagnifierType = serifAssembly.GetType("Serif.Affinity.UI.Controls.ColourPickerMagnifier");
-                if (colourPickerMagnifierType != null)
-                {
-                    var updateWindowLocationMethod = colourPickerMagnifierType.GetMethod("UpdateWindowLocation",
-                        BindingFlags.NonPublic | BindingFlags.Instance);
-
-                    if (updateWindowLocationMethod != null)
+                    var app = System.Windows.Application.Current;
+                    if (app != null && docViewServiceType != null)
                     {
-                        var prefix = typeof(ColorPickerWaylandPatch).GetMethod(nameof(UpdateWindowLocation_Prefix),
-                            BindingFlags.Static | BindingFlags.Public);
-                        harmony.Patch(updateWindowLocationMethod, prefix: new HarmonyMethod(prefix));
-                        Logger.Info($"Patched ColourPickerMagnifier.UpdateWindowLocation to refresh bitmap");
-                    }
-                    else
-                    {
-                        Logger.Warning($"WARNING: UpdateWindowLocation method not found");
+                        var gsm = app.GetType().GetMethods()
+                            .FirstOrDefault(m => m.Name == "GetService" && m.IsGenericMethod && m.GetParameters().Length == 0);
+                        if (gsm != null)
+                            _getServiceGenericMethod = gsm.MakeGenericMethod(docViewServiceType);
                     }
                 }
-                else
+
+                // Transpile SaveAllScreens: replace CopyFromScreen with our CaptureCanvas
+                var screenHelperType = serifAssembly.GetType("Serif.Affinity.UI.Controls.ScreenHelper");
+                var saveAllScreens = screenHelperType?.GetMethod("SaveAllScreens",
+                    BindingFlags.Public | BindingFlags.Static, null,
+                    new[] { typeof(int), typeof(int), typeof(int), typeof(int) }, null);
+                if (saveAllScreens != null)
                 {
-                    Logger.Warning($"WARNING: ColourPickerMagnifier type not found");
+                    harmony.Patch(saveAllScreens,
+                        transpiler: new HarmonyMethod(typeof(ColorPickerWaylandPatch), nameof(SaveAllScreens_Transpiler)));
+                    Logger.Info("Transpiled ScreenHelper.SaveAllScreens");
                 }
+
+                // Postfix on CreateZoomImage for Exact color mode
+                var createZoomImage = screenHelperType?.GetMethod("CreateZoomImage", BindingFlags.Public | BindingFlags.Static);
+                if (createZoomImage != null)
+                {
+                    harmony.Patch(createZoomImage,
+                        postfix: new HarmonyMethod(typeof(ColorPickerWaylandPatch), nameof(CreateZoomImage_Postfix)));
+                    Logger.Info("Patched ScreenHelper.CreateZoomImage (Exact mode postfix)");
+                }
+
+                // Patch StartDragging/FinishDragging to track picker lifecycle and cache HWND
+                var magnifierType = serifAssembly.GetType("Serif.Affinity.UI.Controls.ColourPickerMagnifier");
+                if (magnifierType != null)
+                {
+                    var startDragging = magnifierType.GetMethod("StartDragging", BindingFlags.Public | BindingFlags.Instance);
+                    if (startDragging != null)
+                        harmony.Patch(startDragging, prefix: new HarmonyMethod(typeof(ColorPickerWaylandPatch), nameof(StartDragging_Prefix)));
+
+                    var finishDragging = magnifierType.GetMethod("FinishDragging", BindingFlags.Public | BindingFlags.Instance);
+                    if (finishDragging != null)
+                        harmony.Patch(finishDragging, prefix: new HarmonyMethod(typeof(ColorPickerWaylandPatch), nameof(FinishDragging_Prefix)));
+
+                    Logger.Info("Patched ColourPickerMagnifier StartDragging/FinishDragging");
+                }
+
+                Logger.Info("ColorPickerWayland patch applied successfully");
             }
             catch (Exception ex)
             {
@@ -172,271 +145,166 @@ namespace WineFix.Patches
             }
         }
 
-        private static int _frameCounter = 0;
-        private const int REFRESH_INTERVAL = 10;
+        // ── Picker lifecycle ──
 
-        // Postfix to override color with exact pixel value in EXACT mode
-        public static void CreateZoomImage_Postfix(Bitmap bmpSrc, System.Windows.Point posIn, System.Windows.Size size, ref object col)
+        public static void StartDragging_Prefix()
         {
-            if (!_useExactPixelColor || bmpSrc == null)
-            {
-                return; // NATIVE mode or no bitmap - use original behavior
-            }
+            _pickerActive = true;
+            _hwnd = IntPtr.Zero;
 
             try
             {
-                // Calculate the center pixel position in the bitmap
-                // posIn is in screen coordinates, need to convert to bitmap coordinates
-                var screenLeft = SystemParameters.VirtualScreenLeft;
-                var screenTop = SystemParameters.VirtualScreenTop;
-
-                // Offset by virtual screen position
-                int bitmapX = (int)(posIn.X - screenLeft);
-                int bitmapY = (int)(posIn.Y - screenTop);
-
-                // Bounds check
-                if (bitmapX >= 0 && bitmapX < bmpSrc.Width && bitmapY >= 0 && bitmapY < bmpSrc.Height)
+                var app = System.Windows.Application.Current;
+                if (app != null && _getServiceGenericMethod != null)
                 {
-                    // Get the exact pixel color from the bitmap
-                    System.Drawing.Color pixelColor = bmpSrc.GetPixel(bitmapX, bitmapY);
-
-                    // Convert to Colour type
-                    // Need to find the ColourRGB type and create an instance
-                    var personaAssembly = AppDomain.CurrentDomain.GetAssemblies()
-                        .FirstOrDefault(a => a.GetName().Name == "Serif.Interop.Persona");
-
-                    if (personaAssembly != null)
+                    var svc = _getServiceGenericMethod.Invoke(app, null);
+                    var view = _currentViewProperty?.GetValue(svc);
+                    if (view != null)
                     {
-                        var colourRGBType = personaAssembly.GetType("Serif.Interop.Persona.Colours.ColourRGB");
-                        if (colourRGBType != null)
-                        {
-                            // Create ColourRGB(double r, double g, double b, double a)
-                            var constructor = colourRGBType.GetConstructor(new Type[] { typeof(double), typeof(double), typeof(double), typeof(double) });
-                            if (constructor != null)
-                            {
-                                col = constructor.Invoke(new object[] {
-                                    pixelColor.R / 255.0,
-                                    pixelColor.G / 255.0,
-                                    pixelColor.B / 255.0,
-                                    pixelColor.A / 255.0
-                                });
-
-                                Logger.Debug($"EXACT mode: Picked color from pixel ({bitmapX}, {bitmapY}): R={pixelColor.R}, G={pixelColor.G}, B={pixelColor.B}");
-                            }
-                        }
+                        if (_renderControlProperty == null)
+                            _renderControlProperty = view.GetType().GetProperty("RenderControl");
+                        if (_renderControlProperty?.GetValue(view) is HwndHost host)
+                            _hwnd = host.Handle;
                     }
                 }
             }
             catch (Exception ex)
             {
-                Logger.Debug($"Error in EXACT color mode: {ex.Message}");
+                Logger.Debug($"Failed to cache HWND: {ex.Message}");
             }
-        }
 
-        // Prefix to periodically refresh bitmap (not every frame for performance)
-        public static void UpdateWindowLocation_Prefix(object __instance)
-        {
+            // Cache color picker mode setting
+            var store = AffinityPluginLoader.Core.PluginManager.GetSettingsStore(WineFixPlugin.PluginId);
+            if (store != null)
+            {
+                var mode = store.GetEffectiveValue<string>(WineFixPlugin.ColorPickerModeKey);
+                _useExactPixelColor = "exact".Equals(mode, StringComparison.OrdinalIgnoreCase);
+            }
+
+            // Cache monitor scale
             try
             {
-                _frameCounter++;
+                var pAsm = AppDomain.CurrentDomain.GetAssemblies()
+                    .FirstOrDefault(a => a.GetName().Name == "Serif.Interop.Persona");
+                var mcType = pAsm?.GetType("Serif.Interop.Persona.MonitorCollection");
+                var inst = mcType?.GetProperty("Instance", BindingFlags.Public | BindingFlags.Static)?.GetValue(null);
+                var gms = inst?.GetType().GetMethod("GetMaximumScale");
+                if (gms != null) _monitorScale = (double)gms.Invoke(inst, null);
+            }
+            catch { }
+        }
 
-                // Only recapture every N frames to improve performance
-                if (_frameCounter >= REFRESH_INTERVAL)
+        public static void FinishDragging_Prefix()
+        {
+            _pickerActive = false;
+        }
+
+        // ── Exact mode: override picked colour with the zoom preview center pixel ──
+
+        /// <summary>
+        /// In Exact mode, replaces the picked colour with the actual pixel value at the
+        /// center of the zoom bitmap, so the picked colour always matches the preview.
+        /// </summary>
+        public static void CreateZoomImage_Postfix(Bitmap bmpSrc, System.Windows.Point posIn,
+            System.Windows.Size size, ref object col)
+        {
+            if (!_useExactPixelColor || bmpSrc == null || _colourRGBConstructor == null)
+                return;
+
+            try
+            {
+                int bmpX = (int)(posIn.X - System.Windows.SystemParameters.VirtualScreenLeft * _monitorScale);
+                int bmpY = (int)(posIn.Y - System.Windows.SystemParameters.VirtualScreenTop * _monitorScale);
+
+                if (bmpX >= 0 && bmpX < bmpSrc.Width && bmpY >= 0 && bmpY < bmpSrc.Height)
                 {
-                    _frameCounter = 0;
-
-                    // Clear the cached _screenBmp so it gets recaptured
-                    var field = __instance.GetType().GetField("_screenBmp", BindingFlags.NonPublic | BindingFlags.Instance);
-                    if (field != null)
-                    {
-                        field.SetValue(__instance, null);
-                    }
+                    System.Drawing.Color px = bmpSrc.GetPixel(bmpX, bmpY);
+                    col = _colourRGBConstructor.Invoke(new object[] {
+                        px.R / 255.0, px.G / 255.0, px.B / 255.0, px.A / 255.0
+                    });
                 }
             }
             catch (Exception ex)
             {
-                Logger.Debug($"Error clearing cached bitmap: {ex.Message}");
+                Logger.Debug($"Exact color mode error: {ex.Message}");
             }
         }
 
-        private static bool _loggedCaptureInfo = false;
+        // ── Transpiler ──
 
-        // Prefix that replaces the screen capture with canvas/DocumentView capture
-        public static bool SaveAllScreens_Prefix(int screenLeft, int screenTop, int screenWidth, int screenHeight, ref Bitmap __result)
+        /// <summary>
+        /// Replaces the CopyFromScreen call in SaveAllScreens with our CaptureCanvas,
+        /// which has the same signature so the IL stack is consumed correctly.
+        /// </summary>
+        public static IEnumerable<CodeInstruction> SaveAllScreens_Transpiler(IEnumerable<CodeInstruction> instructions)
         {
+            var codes = new List<CodeInstruction>(instructions);
+            var copyFromScreen = typeof(Graphics).GetMethod("CopyFromScreen",
+                new[] { typeof(int), typeof(int), typeof(int), typeof(int), typeof(System.Drawing.Size) });
+
+            for (int i = 0; i < codes.Count; i++)
+            {
+                if (codes[i].Calls(copyFromScreen))
+                {
+                    codes[i] = new CodeInstruction(OpCodes.Call,
+                        typeof(ColorPickerWaylandPatch).GetMethod(nameof(CaptureCanvas), BindingFlags.Public | BindingFlags.Static));
+                    Logger.Info("Transpiler: replaced CopyFromScreen with CaptureCanvas");
+                    break;
+                }
+            }
+
+            return codes;
+        }
+
+        // ── Capture ──
+
+        /// <summary>
+        /// Drop-in replacement for Graphics.CopyFromScreen (same signature).
+        /// When the picker is active, BitBlts the RenderControl canvas.
+        /// Otherwise falls back to the original CopyFromScreen.
+        /// </summary>
+        public static void CaptureCanvas(Graphics graphics, int screenLeft, int screenTop,
+            int dstX, int dstY, System.Drawing.Size size)
+        {
+            if (!_pickerActive || _hwnd == IntPtr.Zero)
+            {
+                graphics.CopyFromScreen(screenLeft, screenTop, dstX, dstY, size);
+                return;
+            }
+
             try
             {
-                // Only log capture info once to reduce spam
-                if (!_loggedCaptureInfo)
-                {
-                    Logger.Debug($"SaveAllScreens_Prefix: Capturing canvas (virtual screen: {screenLeft}, {screenTop}, {screenWidth}x{screenHeight})");
-                }
+                object rect = Activator.CreateInstance(_rectType);
+                object[] rectArgs = { _hwnd, rect };
+                _getWindowRectMethod.Invoke(null, rectArgs);
+                rect = rectArgs[1];
+                int winLeft = (int)_rectLeftField.GetValue(rect);
+                int winTop = (int)_rectTopField.GetValue(rect);
+                int winW = (int)_rectRightField.GetValue(rect) - winLeft;
+                int winH = (int)_rectBottomField.GetValue(rect) - winTop;
 
-                // Get the DocumentView from the application
-                var affinityApp = System.Windows.Application.Current;
-                if (affinityApp == null)
-                {
-                    Logger.Warning("Application.Current is null");
-                    return true;
-                }
+                int canvasDestX = winLeft - screenLeft;
+                int canvasDestY = winTop - screenTop;
 
-                // Get the DocumentViewService and current view
-                object documentView = null;
-
+                IntPtr hdcDst = graphics.GetHdc();
                 try
                 {
-                    // Get the service using reflection
-                    // Look for the generic GetService<T>() method (no parameters)
-                    var getServiceMethod = affinityApp.GetType().GetMethods()
-                        .FirstOrDefault(m => m.Name == "GetService"
-                            && m.IsGenericMethod
-                            && m.GetParameters().Length == 0);
-
-                    if (getServiceMethod != null && _documentViewServiceType != null)
-                    {
-                        var genericMethod = getServiceMethod.MakeGenericMethod(_documentViewServiceType);
-                        var documentViewService = genericMethod.Invoke(affinityApp, null);
-
-                        if (documentViewService != null)
-                        {
-                            var viewsProperty = _documentViewServiceType.GetProperty("CurrentView");
-                            documentView = viewsProperty?.GetValue(documentViewService);
-                        }
-                    }
+                    IntPtr hdcSrc = (IntPtr)_getDCMethod.Invoke(null, new object[] { _hwnd });
+                    _bitBltMethod.Invoke(null, new object[] {
+                        hdcDst, canvasDestX, canvasDestY, winW, winH,
+                        hdcSrc, 0, 0, 0x00CC0020
+                    });
+                    _releaseDCMethod.Invoke(null, new object[] { _hwnd, hdcSrc });
                 }
-                catch (Exception ex)
+                finally
                 {
-                    if (!_loggedCaptureInfo)
-                    {
-                        Logger.Debug($"Could not get DocumentView: {ex.Message}");
-                    }
+                    graphics.ReleaseHdc(hdcDst);
                 }
-
-                // Try to get the RenderControl's window handle
-                IntPtr renderControlHwnd = IntPtr.Zero;
-                System.Windows.Point controlPosition = new System.Windows.Point(0, 0);
-                double controlWidth = 0;
-                double controlHeight = 0;
-
-                if (documentView != null)
-                {
-                    // Try to get the RenderControl from DocumentView
-                    var renderControlProp = documentView.GetType().GetProperty("RenderControl");
-
-                    if (renderControlProp != null)
-                    {
-                        var renderControl = renderControlProp.GetValue(documentView);
-
-                        // RenderControl is an HwndHost, so we can get its Handle
-                        if (renderControl is HwndHost hwndHost)
-                        {
-                            renderControlHwnd = hwndHost.Handle;
-
-                            // Get position and size using Win32 GetWindowRect for accurate positioning
-                            try
-                            {
-                                // Use GetWindowRect to get the actual window rectangle
-                                object rect = Activator.CreateInstance(_rectType);
-                                object[] args = new object[] { renderControlHwnd, rect };
-                                _getWindowRectMethod.Invoke(null, args);
-                                rect = args[1]; // GetWindowRect uses out parameter
-
-                                // Extract Left, Top, Right, Bottom from RECT
-                                var leftField = _rectType.GetField("Left");
-                                var topField = _rectType.GetField("Top");
-                                var rightField = _rectType.GetField("Right");
-                                var bottomField = _rectType.GetField("Bottom");
-
-                                int left = (int)leftField.GetValue(rect);
-                                int top = (int)topField.GetValue(rect);
-                                int right = (int)rightField.GetValue(rect);
-                                int bottom = (int)bottomField.GetValue(rect);
-
-                                controlPosition = new System.Windows.Point(left, top);
-                                controlWidth = right - left;
-                                controlHeight = bottom - top;
-
-                                if (!_loggedCaptureInfo)
-                                {
-                                    Logger.Debug($"RenderControl HWND: {renderControlHwnd}");
-                                    Logger.Debug($"RenderControl RECT: left={left}, top={top}, right={right}, bottom={bottom}");
-                                    Logger.Debug($"RenderControl position: {controlPosition}, size: {controlWidth}x{controlHeight}");
-                                }
-                            }
-                            catch (Exception ex)
-                            {
-                                if (!_loggedCaptureInfo)
-                                {
-                                    Logger.Debug($"Error getting control position: {ex.Message}");
-                                }
-                            }
-                        }
-                    }
-                }
-
-                // If we didn't get a RenderControl, fall back to original implementation
-                if (renderControlHwnd == IntPtr.Zero)
-                {
-                    Logger.Warning("Could not get RenderControl HWND, falling back");
-                    return true;
-                }
-
-                // Capture the RenderControl window using BitBlt
-                Bitmap bitmap = new Bitmap(screenWidth, screenHeight, System.Drawing.Imaging.PixelFormat.Format32bppArgb);
-
-                using (Graphics graphics = Graphics.FromImage(bitmap))
-                {
-                    // Fill with black background
-                    graphics.Clear(System.Drawing.Color.Black);
-
-                    IntPtr hdcDest = graphics.GetHdc();
-                    try
-                    {
-                        // Get the device context for the RenderControl window
-                        IntPtr hdcSrc = (IntPtr)_getDCMethod.Invoke(null, new object[] { renderControlHwnd });
-
-                        // Calculate where to draw the control in the virtual screen bitmap
-                        int destX = (int)(controlPosition.X - screenLeft);
-                        int destY = (int)(controlPosition.Y - screenTop);
-
-                        if (!_loggedCaptureInfo)
-                        {
-                            Logger.Debug($"Capturing from HWND {renderControlHwnd} to position ({destX}, {destY})");
-                            Logger.Debug($"Virtual screen: left={screenLeft}, top={screenTop}, size={screenWidth}x{screenHeight}");
-                            Logger.Debug($"Control in bitmap: from ({destX},{destY}) to ({destX + (int)controlWidth},{destY + (int)controlHeight})");
-                        }
-
-                        // Copy window contents to bitmap at the correct position using BitBlt
-                        // SRCCOPY = 0x00CC0020
-                        bool success = (bool)_bitBltMethod.Invoke(null, new object[] {
-                            hdcDest, destX, destY, (int)controlWidth, (int)controlHeight,
-                            hdcSrc, 0, 0, 0x00CC0020
-                        });
-
-                        if (!_loggedCaptureInfo)
-                        {
-                            Logger.Debug($"BitBlt result: {success}");
-                            _loggedCaptureInfo = true; // Only log detailed info once
-                        }
-
-                        // Release the window DC
-                        _releaseDCMethod.Invoke(null, new object[] { renderControlHwnd, hdcSrc });
-                    }
-                    finally
-                    {
-                        graphics.ReleaseHdc(hdcDest);
-                    }
-                }
-
-                __result = bitmap;
-                return false; // Skip original method
             }
             catch (Exception ex)
             {
-                Logger.Error($"Error in SaveAllScreens_Prefix: {ex.Message}", ex);
-                return true;
+                Logger.Debug($"CaptureCanvas error: {ex.Message}");
             }
         }
-
     }
 }
