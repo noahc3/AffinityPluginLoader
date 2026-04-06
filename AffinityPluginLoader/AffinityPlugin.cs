@@ -39,6 +39,13 @@ namespace AffinityPluginLoader
         public virtual void OnUiReady(IPluginContext context) { }
 
         /// <summary>
+        /// Stage 5: Called after startup is fully complete — splash hidden, app idle.
+        /// Safe to show dialogs, toasts, or do any work that should wait until the user
+        /// is looking at a fully loaded application.
+        /// </summary>
+        public virtual void OnStartupComplete(IPluginContext context) { }
+
+        /// <summary>
         /// Override to define configuration options for this plugin.
         /// Returns null by default (no settings / no preferences tab).
         /// Called during Stage 0 before OnLoad.

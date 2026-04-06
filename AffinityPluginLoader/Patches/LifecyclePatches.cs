@@ -59,6 +59,16 @@ namespace AffinityPluginLoader.Patches
                     postfix: new HarmonyMethod(typeof(LifecyclePatches), nameof(OnMainWindowLoaded_Postfix)));
                 Logger.Info("Hooked OnMainWindowLoaded for Stage 4");
             }
+
+            // Stage 5: after PostLoad()
+            var postLoad = appType.GetMethod("PostLoad",
+                BindingFlags.NonPublic | BindingFlags.Instance);
+            if (postLoad != null)
+            {
+                harmony.Patch(postLoad,
+                    postfix: new HarmonyMethod(typeof(LifecyclePatches), nameof(PostLoad_Postfix)));
+                Logger.Info("Hooked PostLoad for Stage 5");
+            }
         }
 
         public static void InitialiseServices_Postfix()
@@ -74,6 +84,11 @@ namespace AffinityPluginLoader.Patches
         public static void OnMainWindowLoaded_Postfix()
         {
             PluginManager.RunStage(LoadStage.UiReady);
+        }
+
+        public static void PostLoad_Postfix()
+        {
+            PluginManager.RunStage(LoadStage.StartupComplete);
         }
     }
 }

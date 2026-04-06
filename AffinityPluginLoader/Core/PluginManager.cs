@@ -147,6 +147,9 @@ namespace AffinityPluginLoader.Core
                         case LoadStage.UiReady:
                             kvp.Value.OnUiReady(ctx);
                             break;
+                        case LoadStage.StartupComplete:
+                            kvp.Value.OnStartupComplete(ctx);
+                            break;
                     }
                 }
                 catch (Exception ex)

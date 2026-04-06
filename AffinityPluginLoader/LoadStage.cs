@@ -29,6 +29,11 @@ namespace AffinityPluginLoader
         /// <summary>
         /// Main window loaded and visible. Full UI tree available.
         /// </summary>
-        UiReady = 4
+        UiReady = 4,
+
+        /// <summary>
+        /// Startup fully complete. Splash hidden, app idle, m_startupComplete = true.
+        /// </summary>
+        StartupComplete = 5
     }
 }
