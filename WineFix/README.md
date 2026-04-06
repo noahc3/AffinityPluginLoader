@@ -1,59 +1,45 @@
 # WineFix
 
-WineFix is an APL plugin which aims to patch bugs encountered when running Affinity on Linux under Wine using
-runtime code patches. 
+WineFix is an APL plugin which patches bugs encountered when running Affinity on Linux under Wine using runtime code patches.
+
+> [!TIP]
+> 📖 **Full documentation at [apl.ncuroe.dev/winefix](https://apl.ncuroe.dev/winefix/)**
 
 ## Install
 
-To install WineFix, download `apl-winefix-vX.X.X.zip` from the [latest release](https://github.com/noahc3/AffinityPluginLoader/releases) and extract the `apl/` directory and `d2d1.dll` file to your Affinity install directory. That is, `d2d1.dll` should be in the Affinity install directory next to your Affinity.exe, and `WineFix.dll` should be inside the `apl/plugins` folder in your Affinity directory after extraction.
+1. [Install APL](https://apl.ncuroe.dev/guide/installation/) first.
+2. Download `winefix-vX.X.X.zip` from the [latest release](https://github.com/noahc3/AffinityPluginLoader/releases) and extract into your Affinity install directory.
+
+For detailed instructions, see the [WineFix Installation Guide](https://apl.ncuroe.dev/winefix/installation/).
 
 ## Included Patches
 
-As of now WineFix fixes the following bugs:
-
-- Fixed: Preferences fail to save on application exit
-- Fixed: Vector path preview lines are drawn incorrectly and don't match the underlying stroke path
-- Fixed: Color picker zoom preview displays a black image on Wayland (auto-detected; configurable)
-- Fixed: Intermittent startup crash caused by parallel font enumeration (force-disabled by default)
-
-> [!WARNING]
-> WineFix currently patches out the Canva sign-in dialog prompt when launching Affinity. This is temporary and the sign-in dialog prompt will be restored as soon as we have a known consistent way to fix the sign-in browser redirect and Affinity protocol handler.
+- Preferences fail to save on application exit
+- Vector path preview lines drawn incorrectly
+- Color picker zoom preview displays a black image on Wayland
+- Intermittent startup crash from parallel font enumeration
+- Canva sign-in dialog patched out (temporary; pending protocol handler fix)
 
 ## Configuration
 
-WineFix settings are configurable from Affinity's preferences dialog (under the WineFix tab) or via environment variables.
-
-| Setting | Default | Description |
-|---|---|---|
-| Color picker magnifier fix | Auto | Wayland zoom preview fix. Auto enables only on Wayland/XWayland. |
-| Color picker sampling mode | Native | Native uses Affinity's color space; Exact picks the literal pixel color (sRGB). |
-| Force synchronous font enumeration | Enabled | Disables parallel font loading to reduce startup crashes. May increase startup time. |
-
-Environment variable overrides use the format `APL__WINEFIX__KEY` (e.g. `APL__WINEFIX__COLOR_PICKER_MAGNIFIER_FIX=disabled`).
+WineFix is configurable from Affinity's preferences dialog, TOML files, or environment variables. See the [Configuration Reference](https://apl.ncuroe.dev/winefix/configuration/) for all settings and options.
 
 ## Known Open Bugs
 
-We are currently researching potential solutions for the following bugs:
-
 - Accepting crash reporting causes permanent crash until prefs are cleared
-- Embedded SVG document editor causes crash after being open for some amount of time
+- Embedded SVG document editor crashes after being open for some time
 
-We are open to resolving any Wine-specific bugs. Feel free to open an issue requesting a patch for any
-particular bug you encounter. Just please keep in mind these bugs take time to research and develop patches for,
-especially if the bug needs to be patched in native code.
+We are open to resolving any Wine-specific bugs. Feel free to [open an issue](https://github.com/noahc3/AffinityPluginLoader/issues) requesting a patch.
 
 ## Licensing
 
-WineFix is licensed under the terms of the GPLv2 except for the exclusion and exemption noted below. You can find a copy of the license in the LICENSE file.
+WineFix is licensed under **GPLv2**. See the [LICENSE](LICENSE) file.
 
-### License Exclusion
-
-WineFix includes source code from the Wine project for d2d1.dll under `WineFix/lib/d2d1`. In accordance with the original project, the code in this directory is instead licensed under the LGPLv2.1. A copy of this license can be found at `WineFix/lib/d2d1/LICENSE`. Changes have been applied to the d2d1 source code to implement a recursive cubic bezier subdivision algorithm to correct cubic bezier rendering in Affinity, and to allow building d2d1.dll standalone from the full Wine source code repository.
+The bundled `d2d1.dll` source (under `WineFix/lib/d2d1/`) is licensed under **LGPLv2.1** per upstream Wine licensing. Changes have been applied to implement a cubic bezier subdivision algorithm and to allow building d2d1.dll standalone.
 
 ### License Exemption
 
-[Canva](https://github.com/canva) and it's subsidiaries are exempt from GPLv2 licensing and may (at its option) instead license any source code authored for the WineFix project under the Zero-Clause BSD license. 
-- Due to requirements of the upstream Wine licensing, this exemption **does not apply** to the d2d1.dll implementation source code, ie. all code under `WineFix/lib/d2d1/` is excluded from this exemption.
+[Canva](https://github.com/canva) and its subsidiaries are exempt from GPLv2 licensing and may (at its option) instead license any source code authored for the WineFix project under the Zero-Clause BSD license. This exemption **does not apply** to the d2d1.dll source code under `WineFix/lib/d2d1/`.
 
 
 # Credits
