@@ -230,7 +230,7 @@ namespace AffinityPluginLoader.Core
         private static void DiscoverPlugins()
         {
             var loaderDir = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location);
-            var pluginsDir = Path.Combine(loaderDir, "plugins");
+            var pluginsDir = Path.Combine(loaderDir, "apl", "plugins");
 
             if (!Directory.Exists(pluginsDir))
             {

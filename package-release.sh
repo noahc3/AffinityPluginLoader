@@ -118,12 +118,12 @@ echo
 # Package WineFix
 echo "[3/4] Packaging winefix-v$WINEFIX_VERSION.zip..."
 WINEFIX_TEMP="$OUTPUT_DIR/winefix_temp"
-mkdir -p "$WINEFIX_TEMP/plugins"
+mkdir -p "$WINEFIX_TEMP/apl/plugins"
 
 # Copy files for WineFix package
 cp "README.md" "$WINEFIX_TEMP/"
 cp "WineFix/LICENSE" "$WINEFIX_TEMP/"
-cp "WineFix/bin/x64/$CONFIGURATION/net48/win-x64/WineFix.dll" "$WINEFIX_TEMP/plugins/"
+cp "WineFix/bin/x64/$CONFIGURATION/net48/win-x64/WineFix.dll" "$WINEFIX_TEMP/apl/plugins/"
 
 # Copy d2d1.dll (Wine native) if it exists
 if [ -f "WineFix/lib/d2d1/build/x86_64-unix/d2d1.dll.so" ]; then
@@ -142,14 +142,14 @@ echo
 # Package combined archive (tar.xz)
 echo "[4/4] Packaging affinitypluginloader-plus-winefix.tar.xz..."
 COMBINED_TEMP="$OUTPUT_DIR/combined_temp"
-mkdir -p "$COMBINED_TEMP/plugins"
+mkdir -p "$COMBINED_TEMP/apl/plugins"
 
 # Copy files for combined package
 cp "AffinityPluginLoader/bin/x64/$CONFIGURATION/net48/win-x64/0Harmony.dll" "$COMBINED_TEMP/"
 cp "AffinityBootstrap/build/AffinityBootstrap.dll" "$COMBINED_TEMP/"
 cp "AffinityHook/bin/x64/$CONFIGURATION/net48/win-x64/AffinityHook.exe" "$COMBINED_TEMP/"
 cp "AffinityPluginLoader/bin/x64/$CONFIGURATION/net48/win-x64/AffinityPluginLoader.dll" "$COMBINED_TEMP/"
-cp "WineFix/bin/x64/$CONFIGURATION/net48/win-x64/WineFix.dll" "$COMBINED_TEMP/plugins/"
+cp "WineFix/bin/x64/$CONFIGURATION/net48/win-x64/WineFix.dll" "$COMBINED_TEMP/apl/plugins/"
 
 # Copy d2d1.dll (Wine native) if it exists
 if [ -f "WineFix/lib/d2d1/build/x86_64-unix/d2d1.dll.so" ]; then

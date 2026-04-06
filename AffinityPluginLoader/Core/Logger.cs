@@ -139,12 +139,11 @@ namespace AffinityPluginLoader.Core
         {
             try
             {
-                // Determine log file path (plugins/logs/apl.latest.log)
+                // Determine log file path (apl/logs/apl.latest.log)
                 string assemblyDir = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location);
-                string pluginsDir = Path.Combine(assemblyDir, "plugins");
-                string logsDir = Path.Combine(pluginsDir, "logs");
+                string logsDir = Path.Combine(assemblyDir, "apl", "logs");
 
-                // Create plugins/logs directory if it doesn't exist
+                // Create apl/logs directory if it doesn't exist
                 if (!Directory.Exists(logsDir))
                 {
                     Directory.CreateDirectory(logsDir);
