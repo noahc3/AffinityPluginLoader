@@ -38,7 +38,7 @@ namespace WineFix
                         new EnumOption("exact", "Exact")
                     },
                     defaultValue: "native",
-                    description: "• Native: Use Affinity's built-in color picking which may differ from the zoom preview pixel.\n• Exact: Pick the exact color of the highlighted pixel in the zoom preview.")
+                    description: "• Native: Use Affinity's built-in color sampling. Colors sampled within the canvas bounds will use the native document color space, but the color of the highlighted pixel in the zoom preview may differ slightly from the actual color value sampled.\n• Exact: Pick the exact color of the highlighted pixel in the zoom preview. Samples from a screen capture in sRGB rather than the document's native color space.")
                 .AddSection("Crash Fixes")
                 .AddBool(SettingForceSyncFontEnum, "Force synchronous font enumeration",
                     defaultValue: true,
