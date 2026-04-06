@@ -3,7 +3,7 @@ using System.IO;
 using System.Reflection;
 using System.Runtime.InteropServices;
 using System.Text;
-using HarmonyLib;
+using AffinityPluginLoader.Settings;
 
 namespace AffinityPluginLoader.Core
 {
@@ -44,6 +44,7 @@ namespace AffinityPluginLoader.Core
 
         /// <summary>
         /// Initialize the logger. Call this once at startup.
+        /// Console attachment happens here; file logging is deferred until ApplySettings().
         /// </summary>
         public static void Initialize()
         {
@@ -52,46 +53,45 @@ namespace AffinityPluginLoader.Core
                 if (_initialized)
                     return;
 
-                // Try to attach to parent console for output visibility
                 AttachToConsole();
-
-                // Parse APL_LOGGING environment variable
-                string aplLogging = Environment.GetEnvironmentVariable("APL_LOGGING");
-                if (!string.IsNullOrEmpty(aplLogging))
-                {
-                    // Parse log level
-                    if (Enum.TryParse(aplLogging.ToUpperInvariant(), out LogLevel level))
-                    {
-                        _minimumLevel = level;
-                        _fileLoggingEnabled = true;
-                    }
-                    else
-                    {
-                        // Invalid log level, default to DEBUG and warn
-                        _minimumLevel = LogLevel.DEBUG;
-                        _fileLoggingEnabled = true;
-                        Console.WriteLine($"[WARNING] Invalid APL_LOGGING value '{aplLogging}'. Using DEBUG. Valid values: DEBUG, INFO, WARNING, ERROR, NONE");
-                    }
-                }
-
-                // Setup file logging if enabled
-                if (_fileLoggingEnabled)
-                {
-                    SetupFileLogging();
-                }
-
                 _initialized = true;
 
-                // Log startup message with timezone info
-                var now = DateTime.Now;
                 var timezone = TimeZoneInfo.Local;
                 Info($"APL logging initialized");
                 Info($"Local timezone: {timezone.DisplayName} (UTC{(timezone.BaseUtcOffset.TotalHours >= 0 ? "+" : "")}{timezone.BaseUtcOffset.TotalHours:0.##})");
+            }
+        }
+
+        /// <summary>
+        /// Apply logging settings from the APL settings store.
+        /// Called after settings are loaded; safe to call multiple times.
+        /// </summary>
+        public static void ApplySettings(SettingsStore store)
+        {
+            lock (_lockObj)
+            {
+                var levelStr = store.GetEffectiveValue<string>(AplSettings.LogLevel);
+                if (Enum.TryParse(levelStr, true, out LogLevel level))
+                    _minimumLevel = level;
+
+                var wantFile = store.GetEffectiveValue<bool>(AplSettings.FileLogging);
+
+                if (wantFile && !_fileLoggingEnabled)
+                {
+                    _fileLoggingEnabled = true;
+                    SetupFileLogging();
+                }
+                else if (!wantFile && _fileLoggingEnabled)
+                {
+                    _fileLoggingEnabled = false;
+                    _fileWriter?.Flush();
+                    _fileWriter?.Close();
+                    _fileWriter = null;
+                }
+
                 Info($"Log level: {_minimumLevel}");
                 if (_fileLoggingEnabled)
-                {
                     Info($"File logging enabled: {_logFilePath}");
-                }
             }
         }
 
