@@ -197,19 +197,19 @@ jobs:
 
       - name: Create apl-winefix package structure
         run: |
-          mkdir -p package/winefix/plugins
-          cp build/winefix/WineFix.dll package/winefix/plugins/
-          cp WineFix/LICENSE package/winefix/plugins/LICENSE
+          mkdir -p package/winefix/apl/plugins
+          cp build/winefix/WineFix.dll package/winefix/apl/plugins/
+          cp WineFix/LICENSE package/winefix/apl/plugins/LICENSE
           cp build/d2d1/d2d1.dll.so package/winefix/d2d1.dll
 
       - name: Create combined package structure
         run: |
-          mkdir -p package/combined/plugins
+          mkdir -p package/combined/apl/plugins
           cp build/bootstrap/AffinityBootstrap.dll package/combined/
           cp build/hook/AffinityHook.exe package/combined/
           cp build/pluginloader/AffinityPluginLoader.dll package/combined/
           cp build/pluginloader/0Harmony.dll package/combined/
-          cp build/winefix/WineFix.dll package/combined/plugins/
+          cp build/winefix/WineFix.dll package/combined/apl/plugins/
           cp build/d2d1/d2d1.dll.so package/combined/d2d1.dll
 
       - name: Create release archives
