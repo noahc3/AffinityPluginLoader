@@ -2,6 +2,10 @@
 
 This guide walks through creating an APL plugin from scratch.
 
+!!! warning "Unstable API"
+    APL is experimental. While APL is still v0, expect breaking changes to the plugin API between updates.
+
+
 ## Prerequisites
 
 - .NET Framework 4.8 SDK (or the Docker build environment — see [Building](#building))
