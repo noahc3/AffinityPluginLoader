@@ -2,10 +2,12 @@ using System;
 using System.ComponentModel;
 using System.Linq;
 using System.Runtime.CompilerServices;
+using System.Text.RegularExpressions;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
 using System.Windows.Data;
+using System.Windows.Documents;
 using System.Windows.Markup;
 using AffinityPluginLoader.Core;
 using AffinityPluginLoader.Settings;
@@ -289,17 +291,8 @@ namespace AffinityPluginLoader.UI
 
             if (hasDescription)
             {
-                var descBlock = new TextBlock
-                {
-                    Text = setting.Description,
-                    FontSize = 9,
-                    MaxWidth = 470,
-                    TextWrapping = TextWrapping.Wrap,
-                    HorizontalAlignment = HorizontalAlignment.Left,
-                    Margin = new Thickness(0, 4, 0, 0)
-                };
-                ApplyMutedForeground(descBlock, serifAssembly);
-                panel.Children.Add(descBlock);
+                var descElement = CreateDescriptionElement(setting.Description, serifAssembly);
+                panel.Children.Add(descElement);
             }
 
             if (hasRestart)
@@ -315,6 +308,84 @@ namespace AffinityPluginLoader.UI
             }
 
             return panel;
+        }
+
+        // ── Description rendering (lightweight Markdown subset) ──
+
+        private static readonly Regex BoldItalicPattern = new Regex(@"(\*\*.*?\*\*|\*.*?\*)");
+        private static readonly Regex NumberedListPattern = new Regex(@"^(\d+)\.\s");
+
+        private static UIElement CreateDescriptionElement(string description, System.Reflection.Assembly serifAssembly)
+        {
+            var lines = description.Split('\n');
+            var panel = new StackPanel
+            {
+                HorizontalAlignment = HorizontalAlignment.Left,
+                Margin = new Thickness(0, 4, 0, 0)
+            };
+
+            foreach (var line in lines)
+            {
+                var trimmed = line.TrimStart();
+                if (string.IsNullOrWhiteSpace(trimmed)) continue;
+
+                if (trimmed.StartsWith("- ") || trimmed.StartsWith("* "))
+                {
+                    panel.Children.Add(CreateListItem("•", trimmed.Substring(2), serifAssembly));
+                }
+                else
+                {
+                    var numMatch = NumberedListPattern.Match(trimmed);
+                    if (numMatch.Success)
+                    {
+                        panel.Children.Add(CreateListItem(numMatch.Groups[1].Value + ".", trimmed.Substring(numMatch.Length), serifAssembly));
+                    }
+                    else
+                    {
+                        var tb = new TextBlock { FontSize = 9, MaxWidth = 470, TextWrapping = TextWrapping.Wrap };
+                        ApplyInlineFormatting(tb.Inlines, trimmed);
+                        ApplyMutedForeground(tb, serifAssembly);
+                        panel.Children.Add(tb);
+                    }
+                }
+            }
+
+            return panel;
+        }
+
+        private static UIElement CreateListItem(string marker, string text, System.Reflection.Assembly serifAssembly)
+        {
+            var grid = new Grid();
+            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(10) });
+            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+
+            var bullet = new TextBlock { Text = marker, FontSize = 9 };
+            ApplyMutedForeground(bullet, serifAssembly);
+            Grid.SetColumn(bullet, 0);
+
+            var content = new TextBlock { TextWrapping = TextWrapping.Wrap, FontSize = 9, MaxWidth = 460 };
+            ApplyInlineFormatting(content.Inlines, text);
+            ApplyMutedForeground(content, serifAssembly);
+            Grid.SetColumn(content, 1);
+
+            grid.Children.Add(bullet);
+            grid.Children.Add(content);
+            return grid;
+        }
+
+        private static void ApplyInlineFormatting(InlineCollection inlines, string text)
+        {
+            var parts = BoldItalicPattern.Split(text);
+            foreach (var part in parts)
+            {
+                if (part.Length == 0) continue;
+                if (part.StartsWith("**") && part.EndsWith("**") && part.Length > 4)
+                    inlines.Add(new Run(part.Substring(2, part.Length - 4)) { FontWeight = FontWeights.Bold });
+                else if (part.StartsWith("*") && part.EndsWith("*") && part.Length > 2)
+                    inlines.Add(new Run(part.Substring(1, part.Length - 2)) { FontStyle = FontStyles.Italic });
+                else
+                    inlines.Add(new Run(part));
+            }
         }
 
         // ── Icon helpers ──
