@@ -7,78 +7,47 @@ using AffinityPluginLoader.Core;
 namespace AffinityPluginLoader.Patches
 {
     /// <summary>
-    /// Patches for Affinity application (version strings, etc.)
+    /// APL's own Harmony patches (version strings).
+    /// Applied during Stage 1 by PluginManager. TypeLoadException propagates for auto-deferral.
     /// </summary>
     public static class LoaderPatches
     {
-        private static Harmony _harmony;
-        private static bool _patchesApplied = false;
         private static string _assemblyVersion = "";
 
-        public static void ApplyPatches(Harmony harmony, PluginInfo plugin)
+        public static void ApplyVersionPatches(Harmony harmony, PluginInfo plugin)
         {
-            _harmony = harmony;
+            _assemblyVersion = plugin?.Version ?? "unknown";
 
-            Logger.Info($"Applying Affinity Plugin Loader patches...");
+            var serifAssembly = AppDomain.CurrentDomain.GetAssemblies()
+                .FirstOrDefault(a => a.GetName().Name == "Serif.Affinity");
 
-            _assemblyVersion = plugin.Version ?? "not found";
-
-            // Apply version string patches
-            ApplyVersionPatches();
-
-            // Apply preferences dialog patches
-            PreferencesPatches.ApplyPatches(harmony);
-        }
-
-        private static void ApplyVersionPatches()
-        {
-            if (_patchesApplied)
+            if (serifAssembly == null)
+            {
+                Logger.Error("Serif.Affinity assembly not found for version patches");
                 return;
-
-            try
-            {
-                // Find the Serif.Affinity assembly
-                var serifAssembly = AppDomain.CurrentDomain.GetAssemblies()
-                    .FirstOrDefault(a => a.GetName().Name == "Serif.Affinity");
-
-                if (serifAssembly == null)
-                {
-                    Logger.Error($"ERROR: Serif.Affinity assembly not found");
-                    return;
-                }
-
-                Logger.Info($"Found Serif.Affinity assembly: {serifAssembly.GetName().Version}");
-
-                // Get the Application type
-                var applicationType = serifAssembly.GetType("Serif.Affinity.Application");
-                if (applicationType == null)
-                {
-                    Logger.Error($"ERROR: Application type not found");
-                    return;
-                }
-                
-                // Patch GetCurrentVerboseVersionString (used in splash screen)
-                var getVerboseVersionString = applicationType.GetMethod("GetCurrentVerboseVersionString", BindingFlags.Public | BindingFlags.Instance);
-                if (getVerboseVersionString != null)
-                {
-                    var postfix = typeof(LoaderPatches).GetMethod(nameof(GetVerboseVersionString_Postfix), BindingFlags.Static | BindingFlags.Public);
-                    _harmony.Patch(getVerboseVersionString, postfix: new HarmonyMethod(postfix));
-                    Logger.Info($"Patched GetCurrentVerboseVersionString");
-                }
-
-                _patchesApplied = true;
-                Logger.Info($"Version patches applied successfully!");
             }
-            catch (Exception ex)
+
+            var applicationType = serifAssembly.GetType("Serif.Affinity.Application");
+            if (applicationType == null)
             {
-                Logger.Error("Failed to apply version patches", ex);
+                Logger.Error("Application type not found");
+                return;
+            }
+
+            var method = applicationType.GetMethod("GetCurrentVerboseVersionString",
+                BindingFlags.Public | BindingFlags.Instance);
+
+            if (method != null)
+            {
+                harmony.Patch(method,
+                    postfix: new HarmonyMethod(typeof(LoaderPatches), nameof(GetVerboseVersionString_Postfix)));
+                Logger.Info("Patched GetCurrentVerboseVersionString");
             }
         }
 
-        // Postfix for GetCurrentVerboseVersionString (splash screen)
         public static void GetVerboseVersionString_Postfix(ref string __result)
         {
-            __result = __result + $" (APL {_assemblyVersion})";
+            __result += $" (APL {_assemblyVersion})";
         }
     }
 }

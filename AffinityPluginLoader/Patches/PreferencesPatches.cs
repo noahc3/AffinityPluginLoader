@@ -12,56 +12,47 @@ namespace AffinityPluginLoader.Patches
     {
         public static void ApplyPatches(Harmony harmony)
         {
-            try
+            Logger.Info("Applying PreferencesDialog patches");
+
+            var serifAssembly = AppDomain.CurrentDomain.GetAssemblies()
+                .FirstOrDefault(a => a.GetName().Name == "Serif.Affinity");
+
+            if (serifAssembly == null)
             {
-                Logger.Info($"Applying PreferencesDialog patches");
-
-                var serifAssembly = AppDomain.CurrentDomain.GetAssemblies()
-                    .FirstOrDefault(a => a.GetName().Name == "Serif.Affinity");
-
-                if (serifAssembly == null)
-                {
-                    Logger.Error($"ERROR: Serif.Affinity assembly not found for preferences patch");
-                    return;
-                }
-
-                var preferencesDialogType = serifAssembly.GetType("Serif.Affinity.UI.Dialogs.Preferences.PreferencesDialog");
-                if (preferencesDialogType == null)
-                {
-                    Logger.Error($"ERROR: PreferencesDialog type not found");
-                    return;
-                }
-
-                // Patch constructor to inject tabs
-                var constructor = preferencesDialogType.GetConstructor(
-                    BindingFlags.Public | BindingFlags.Instance,
-                    null,
-                    new Type[] { typeof(Type) },
-                    null);
-
-                if (constructor != null)
-                {
-                    var postfix = typeof(PreferencesPatches).GetMethod(nameof(PreferencesDialog_Constructor_Postfix), BindingFlags.Static | BindingFlags.Public);
-                    harmony.Patch(constructor, postfix: new HarmonyMethod(postfix));
-                    Logger.Info($"Patched PreferencesDialog constructor");
-                }
-                else
-                {
-                    Logger.Error($"ERROR: PreferencesDialog constructor not found");
-                }
-
-                // Patch OnClosed to save settings when dialog closes
-                var onClosed = preferencesDialogType.GetMethod("OnClosed", BindingFlags.NonPublic | BindingFlags.Instance);
-                if (onClosed != null)
-                {
-                    var savePostfix = typeof(PreferencesPatches).GetMethod(nameof(OnClosed_Postfix), BindingFlags.Static | BindingFlags.Public);
-                    harmony.Patch(onClosed, postfix: new HarmonyMethod(savePostfix));
-                    Logger.Info($"Patched PreferencesDialog.OnClosed for settings save");
-                }
+                Logger.Error("Serif.Affinity assembly not found for preferences patch");
+                return;
             }
-            catch (Exception ex)
+
+            var preferencesDialogType = serifAssembly.GetType("Serif.Affinity.UI.Dialogs.Preferences.PreferencesDialog");
+            if (preferencesDialogType == null)
             {
-                Logger.Error("Failed to apply preferences patches", ex);
+                Logger.Error("PreferencesDialog type not found");
+                return;
+            }
+
+            var constructor = preferencesDialogType.GetConstructor(
+                BindingFlags.Public | BindingFlags.Instance,
+                null,
+                new Type[] { typeof(Type) },
+                null);
+
+            if (constructor != null)
+            {
+                var postfix = typeof(PreferencesPatches).GetMethod(nameof(PreferencesDialog_Constructor_Postfix), BindingFlags.Static | BindingFlags.Public);
+                harmony.Patch(constructor, postfix: new HarmonyMethod(postfix));
+                Logger.Info("Patched PreferencesDialog constructor");
+            }
+            else
+            {
+                Logger.Error("PreferencesDialog constructor not found");
+            }
+
+            var onClosed = preferencesDialogType.GetMethod("OnClosed", BindingFlags.NonPublic | BindingFlags.Instance);
+            if (onClosed != null)
+            {
+                var savePostfix = typeof(PreferencesPatches).GetMethod(nameof(OnClosed_Postfix), BindingFlags.Static | BindingFlags.Public);
+                harmony.Patch(onClosed, postfix: new HarmonyMethod(savePostfix));
+                Logger.Info("Patched PreferencesDialog.OnClosed for settings save");
             }
         }
 

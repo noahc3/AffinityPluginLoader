@@ -1,28 +1,35 @@
-using System;
 using HarmonyLib;
-using AffinityPluginLoader.Core;
+using AffinityPluginLoader;
+using AffinityPluginLoader.Settings;
 
 namespace WineFix
 {
     /// <summary>
     /// WineFix Plugin - Bug fixes for running Affinity under Wine
     /// </summary>
-    public class WineFixPlugin : AffinityPluginLoader.AffinityPlugin
+    public class WineFixPlugin : AffinityPlugin
     {
-        public override void Initialize(Harmony harmony)
+        public const string SettingForceSyncFontEnum = "force_sync_font_enum";
+
+        public override PluginSettingsDefinition DefineSettings()
         {
-            try
-            {
-                Logger.Info($"WineFix plugin initializing...");
+            return new PluginSettingsDefinition("winefix")
+                .AddSection("Crash Fixes")
+                .AddBool(SettingForceSyncFontEnum, "Force synchronous font enumeration",
+                    defaultValue: true,
+                    restartRequired: true,
+                    description: "Disable parallel font enumeration to significantly reduce frequency of startup crashes. May increase application startup time on systems with lots of fonts.");
+        }
 
-                // Apply Wine compatibility patches
-                Patches.MainWindowLoadedPatch.ApplyPatches(harmony);
+        public override void OnPatch(Harmony harmony, IPluginContext context)
+        {
+            context.Patch("MainWindowLoaded fix",
+                h => Patches.MainWindowLoadedPatch.ApplyPatches(h));
 
-                Logger.Info($"WineFix plugin initialized successfully");
-            }
-            catch (Exception ex)
+            if (context.Settings.GetEffectiveValue<bool>(SettingForceSyncFontEnum))
             {
-                Logger.Error("Error initializing WineFix", ex);
+                context.Patch("FontEnumeration fix",
+                    h => Patches.FontEnumerationPatch.ApplyPatches(h));
             }
         }
     }
