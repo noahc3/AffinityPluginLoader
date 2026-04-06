@@ -7,6 +7,9 @@
 .env
 .AFFINITY_PATH
 
+# mkdocs build output
+site/
+
 # User-specific files
 *.rsuser
 *.suo
