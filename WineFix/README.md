@@ -5,7 +5,7 @@ runtime code patches.
 
 ## Install
 
-To install WineFix, download `apl-winefix-vX.X.X.zip` from the [latest release](https://github.com/noahc3/AffinityPluginLoader/releases) and extract the `apl/plugins` directory to your Affinity install directory. That is, `WineFix.dll` should be inside the `apl/plugins` folder in your Affinity directory after extraction.
+To install WineFix, download `apl-winefix-vX.X.X.zip` from the [latest release](https://github.com/noahc3/AffinityPluginLoader/releases) and extract the `apl/` directory and `d2d1.dll` file to your Affinity install directory. That is, `d2d1.dll` should be in the Affinity install directory next to your Affinity.exe, and `WineFix.dll` should be inside the `apl/plugins` folder in your Affinity directory after extraction.
 
 ## Included Patches
 
