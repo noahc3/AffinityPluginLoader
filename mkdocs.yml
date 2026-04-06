@@ -1,0 +1,40 @@
+site_name: Affinity Plugin Loader
+site_url: https://noahc3.github.io/AffinityPluginLoader/
+repo_url: https://github.com/noahc3/AffinityPluginLoader
+repo_name: noahc3/AffinityPluginLoader
+
+theme:
+  name: material
+  palette:
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
+  features:
+    - navigation.sections
+    - navigation.expand
+    - content.code.copy
+
+markdown_extensions:
+  - admonition
+  - pymdownx.details
+  - pymdownx.superfences
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.inlinehilite
+  - attr_list
+
+nav:
+  - Home: index.md
+  - APL:
+    - Getting Started: apl/getting-started.md
+    - Writing Plugins: apl/writing-plugins.md
+  - WineFix:
+    - Overview: winefix/index.md
+    - Installation: winefix/installation.md
