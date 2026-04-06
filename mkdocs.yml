@@ -32,9 +32,11 @@ markdown_extensions:
 
 nav:
   - Home: index.md
-  - APL:
-    - Getting Started: apl/getting-started.md
-    - Writing Plugins: apl/writing-plugins.md
+  - User Guide:
+    - Installation: guide/installation.md
+    - Configuration: guide/configuration.md
+  - Developer Guide:
+    - Creating a Plugin: dev/creating-a-plugin.md
   - WineFix:
     - Overview: winefix/index.md
     - Installation: winefix/installation.md
