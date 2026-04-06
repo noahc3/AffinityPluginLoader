@@ -14,7 +14,7 @@ jobs:
     permissions:
       pull-requests: write
       actions: read
-    
+
     steps:
       - name: Get PR number from branch
         id: pr
@@ -29,7 +29,7 @@ jobs:
         run: |
           PR_NUMBER=$(gh pr view "$PR_BRANCH" --repo ${{ github.repository }} --json number --jq '.number')
           echo "number=$PR_NUMBER" >> $GITHUB_OUTPUT
-      
+
       - name: Download commit SHA artifact
         uses: actions/download-artifact@v4
         with:
@@ -43,14 +43,15 @@ jobs:
           echo "short_sha=$(cat commit_sha.txt | cut -c1-7)" >> $GITHUB_OUTPUT
           echo "run_id=${{ github.event.workflow_run.id }}" >> $GITHUB_OUTPUT
           echo "conclusion=${{ github.event.workflow_run.conclusion }}" >> $GITHUB_OUTPUT
+          echo "timestamp=$(date -u +'%B %-d, %Y at %H:%M UTC')" >> $GITHUB_OUTPUT
 
       - name: Find existing comment
         uses: peter-evans/find-comment@v3
         id: find-comment
         with:
           issue-number: ${{ steps.pr.outputs.number }}
-          comment-author: 'github-actions[bot]'
-          body-includes: '<!-- affinitypluginloader-build-artifacts -->'
+          comment-author: "github-actions[bot]"
+          body-includes: "<!-- affinitypluginloader-build-artifacts -->"
 
       - name: Get last successful build (if current failed)
         if: steps.run-info.outputs.conclusion != 'success'
@@ -66,7 +67,7 @@ jobs:
               status: 'success',
               per_page: 1
             });
-            
+
             if (runs.data.workflow_runs.length > 0) {
               const lastRun = runs.data.workflow_runs[0];
               return {
@@ -87,14 +88,15 @@ jobs:
           body: |
             <!-- affinitypluginloader-build-artifacts -->
             ## 🚀 Build Artifacts Ready
-            
+
             **Commit:** `${{ steps.run-info.outputs.short_sha }}`
+            **Build Timestamp:** ${{ steps.run-info.outputs.timestamp }}
             **Build Workflow:** [View Run](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ steps.run-info.outputs.run_id }})
-            
+
             ### 📦 Direct Downloads (via nightly.link):
-            
+
             - **[affinitypluginloader-${{ steps.run-info.outputs.short_sha }}-x64.zip](https://nightly.link/${{ github.repository }}/actions/runs/${{ steps.run-info.outputs.run_id }}/affinitypluginloader-${{ steps.run-info.outputs.short_sha }}-x64.zip)** - Main loader package
-            - **[apl-winefix-${{ steps.run-info.outputs.short_sha }}-x64.zip](https://nightly.link/${{ github.repository }}/actions/runs/${{ steps.run-info.outputs.run_id }}/apl-winefix-${{ steps.run-info.outputs.short_sha }}-x64.zip)** - WineFix plugin  
+            - **[apl-winefix-${{ steps.run-info.outputs.short_sha }}-x64.zip](https://nightly.link/${{ github.repository }}/actions/runs/${{ steps.run-info.outputs.run_id }}/apl-winefix-${{ steps.run-info.outputs.short_sha }}-x64.zip)** - WineFix plugin
             - **[affinitypluginloader-plus-winefix-${{ steps.run-info.outputs.short_sha }}-x64.tar.xz.zip](https://nightly.link/${{ github.repository }}/actions/runs/${{ steps.run-info.outputs.run_id }}/affinitypluginloader-plus-winefix-${{ steps.run-info.outputs.short_sha }}-x64.tar.xz.zip)** - Combined package (tar.xz)
             - **[release-archives-${{ steps.run-info.outputs.short_sha }}.zip](https://nightly.link/${{ github.repository }}/actions/runs/${{ steps.run-info.outputs.run_id }}/release-archives-${{ steps.run-info.outputs.short_sha }}.zip)** - All release archives
 
@@ -108,18 +110,19 @@ jobs:
           body: |
             <!-- affinitypluginloader-build-artifacts -->
             ## ❌ Build Failed
-            
+
             **Commit:** `${{ steps.run-info.outputs.short_sha }}`
+            **Build Timestamp:** ${{ steps.run-info.outputs.timestamp }}
             **Failed Workflow:** [View Run](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ steps.run-info.outputs.run_id }})
-            
+
             The build failed for this commit. Please check the workflow logs for details.
-            
+
             ---
-            
+
             ### 📦 Last Successful Build (`${{ fromJson(steps.last-success.outputs.result).commit_sha }}`):
-            
+
             - **[affinitypluginloader-${{ fromJson(steps.last-success.outputs.result).commit_sha }}-x64.zip](https://nightly.link/${{ github.repository }}/actions/runs/${{ fromJson(steps.last-success.outputs.result).run_id }}/affinitypluginloader-${{ fromJson(steps.last-success.outputs.result).commit_sha }}-x64.zip)** - Main loader package
-            - **[apl-winefix-${{ fromJson(steps.last-success.outputs.result).commit_sha }}-x64.zip](https://nightly.link/${{ github.repository }}/actions/runs/${{ fromJson(steps.last-success.outputs.result).run_id }}/apl-winefix-${{ fromJson(steps.last-success.outputs.result).commit_sha }}-x64.zip)** - WineFix plugin  
+            - **[apl-winefix-${{ fromJson(steps.last-success.outputs.result).commit_sha }}-x64.zip](https://nightly.link/${{ github.repository }}/actions/runs/${{ fromJson(steps.last-success.outputs.result).run_id }}/apl-winefix-${{ fromJson(steps.last-success.outputs.result).commit_sha }}-x64.zip)** - WineFix plugin
             - **[affinitypluginloader-plus-winefix-${{ fromJson(steps.last-success.outputs.result).commit_sha }}-x64.tar.xz.zip](https://nightly.link/${{ github.repository }}/actions/runs/${{ fromJson(steps.last-success.outputs.result).run_id }}/affinitypluginloader-plus-winefix-${{ fromJson(steps.last-success.outputs.result).commit_sha }}-x64.tar.xz.zip)** - Combined package (tar.xz)
             - **[release-archives-${{ fromJson(steps.last-success.outputs.result).commit_sha }}.zip](https://nightly.link/${{ github.repository }}/actions/runs/${{ fromJson(steps.last-success.outputs.result).run_id }}/release-archives-${{ fromJson(steps.last-success.outputs.result).commit_sha }}.zip)** - All release archives
 
@@ -133,10 +136,11 @@ jobs:
           body: |
             <!-- affinitypluginloader-build-artifacts -->
             ## ❌ Build Failed
-            
+
             **Commit:** `${{ steps.run-info.outputs.short_sha }}`
+            **Build timestamp:** ${{ steps.run-info.outputs.timestamp }}
             **Failed Workflow:** [View Run](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ steps.run-info.outputs.run_id }})
-            
+
             The build failed for this commit. Please check the workflow logs for details.
-            
+
             No previous successful builds found for this PR.
