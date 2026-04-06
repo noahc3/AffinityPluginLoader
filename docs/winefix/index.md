@@ -21,13 +21,10 @@ The color picker has two sampling modes, configurable in [settings](configuratio
 
 Use Native for color-accurate work (especially CMYK or wide-gamut documents). Use Exact if you want the picked color to always match the zoom preview.
 
-<!-- TODO: Add screenshot comparison between Native and Exact modes
-![Native mode](../assets/winefix-colorpicker-native.png)
-*Native mode: the zoom preview highlight and the sampled color value may differ slightly.*
-
-![Exact mode](../assets/winefix-colorpicker-exact.png)
-*Exact mode: the sampled color always matches the highlighted pixel in the zoom preview.*
--->
+| Native | Exact |
+|--------|-------|
+| ![Native mode](img/native.png) | ![Exact mode](img/exact.png) |
+| The highlighted pixel reads `R:255 G:255 B:255` — the sampled color differs from what's visible in the zoom preview. | The highlighted pixel reads `R:255 G:148 B:148` — the sampled color matches the actual pixel shown in the zoom preview. |
 
 ## Known Open Bugs
 

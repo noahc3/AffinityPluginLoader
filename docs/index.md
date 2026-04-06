@@ -4,6 +4,8 @@ A managed code plugin loader & injector hook for [Affinity](https://affinity.ser
 
 Supports Windows and Linux (Wine).
 
+![Affinity with APL](img/home.png)
+
 ## Quick Links
 
 - [Installation](guide/installation.md) — Install APL and run it for the first time
