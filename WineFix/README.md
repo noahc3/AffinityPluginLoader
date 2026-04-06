@@ -13,13 +13,28 @@ As of now WineFix fixes the following bugs:
 
 - Fixed: Preferences fail to save on application exit
 - Fixed: Vector path preview lines are drawn incorrectly and don't match the underlying stroke path
+- Fixed: Color picker zoom preview displays a black image on Wayland (auto-detected; configurable)
+- Fixed: Intermittent startup crash caused by parallel font enumeration (force-disabled by default)
 
 > [!WARNING]
 > WineFix currently patches out the Canva sign-in dialog prompt when launching Affinity. This is temporary and the sign-in dialog prompt will be restored as soon as we have a known consistent way to fix the sign-in browser redirect and Affinity protocol handler.
 
-More fixes are planned. We are currently researching potential solutions for the following bugs:
+## Configuration
 
-- Color picker doesn't display zoom image on Wayland
+WineFix settings are configurable from Affinity's preferences dialog (under the WineFix tab) or via environment variables.
+
+| Setting | Default | Description |
+|---|---|---|
+| Color picker magnifier fix | Auto | Wayland zoom preview fix. Auto enables only on Wayland/XWayland. |
+| Color picker sampling mode | Native | Native uses Affinity's color space; Exact picks the literal pixel color (sRGB). |
+| Force synchronous font enumeration | Enabled | Disables parallel font loading to reduce startup crashes. May increase startup time. |
+
+Environment variable overrides use the format `APL__WINEFIX__KEY` (e.g. `APL__WINEFIX__COLOR_PICKER_MAGNIFIER_FIX=disabled`).
+
+## Known Open Bugs
+
+We are currently researching potential solutions for the following bugs:
+
 - Accepting crash reporting causes permanent crash until prefs are cleared
 - Embedded SVG document editor causes crash after being open for some amount of time
 
@@ -33,7 +48,7 @@ WineFix is licensed under the terms of the GPLv2 except for the exclusion and ex
 
 ### License Exclusion
 
-WineFix includes source code from the Wine project for d2d1.dll under `/WineFix/lib/d2d1`. In accordance with the original project, the code in this directory are instead licensed under the LGPLv2.1. A copy of this license can be found at `/WineFix/lib/d2d1/LICENSE`. Changes have been applied to the d2d1 source code to implement a recursive cubic bezier subdivision algorithm to correct cubic bezier rendering in Affinity, and to allow building d2d1.dll standalone from the full Wine source code repository.
+WineFix includes source code from the Wine project for d2d1.dll under `WineFix/lib/d2d1`. In accordance with the original project, the code in this directory is instead licensed under the LGPLv2.1. A copy of this license can be found at `WineFix/lib/d2d1/LICENSE`. Changes have been applied to the d2d1 source code to implement a recursive cubic bezier subdivision algorithm to correct cubic bezier rendering in Affinity, and to allow building d2d1.dll standalone from the full Wine source code repository.
 
 ### License Exemption
 

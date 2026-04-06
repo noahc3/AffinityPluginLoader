@@ -64,7 +64,7 @@ namespace AffinityPluginLoader.Core
                 .AddSection("Logging")
                 .AddBool(FileLogging, "Enable logging to file",
                     defaultValue: false,
-                    description: "Write APL and plugin log output to plugins/logs/apl.latest.log.")
+                    description: "Write APL and plugin log output to apl/logs/apl.latest.log.")
                 .AddEnum(LogLevel, "Log level",
                     new List<EnumOption>
                     {

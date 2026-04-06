@@ -33,7 +33,78 @@ As such it's recommended you update your existing shortcuts or create new shortc
 
 ## Developing Plugins
 
-A better guide will be written up soon. For now you should reference the source code of WineFix for how to get the basic plugin structure going and how you can patch code using IL transpilation. Also take a look the source code of Affinity Plugin Loader for an example of how to inject custom UI and XAML.
+Plugins extend `AffinityPlugin` and override stage methods to hook into Affinity's loading pipeline. APL calls your plugin at each stage as Affinity starts up:
+
+| Stage | Method | What's available |
+|---|---|---|
+| 0 – Load | `OnLoad` | Plugin discovered, settings initialized. No Affinity types yet. |
+| 1 – Patch | `OnPatch` | Serif assemblies loaded. Apply Harmony patches here. |
+| 2 – ServicesReady | `OnServicesReady` | Affinity's DI container and services initialized. |
+| 3 – Ready | `OnReady` | Full runtime including native engine, tools, effects. |
+| 4 – UiReady | `OnUiReady` | Main window loaded. Full UI tree available. |
+| 5 – StartupComplete | `OnStartupComplete` | Splash hidden, app idle. Safe to show dialogs. |
+
+Each stage method receives an `IPluginContext` with:
+- `Harmony` — shared Harmony instance for patching
+- `Settings` — your plugin's settings store (if you defined settings)
+- `Patch(description, action)` — apply a patch with automatic deferral if dependencies aren't loaded yet
+- `Log` / `LogWarning` / `LogError` — logging helpers
+
+### Settings API
+
+Override `DefineSettings()` to declare configuration options. APL auto-generates a preferences page in Affinity's preferences dialog using native Affinity controls.
+
+```csharp
+public override PluginSettingsDefinition DefineSettings()
+{
+    return new PluginSettingsDefinition("myplugin")
+        .AddSection("General")
+        .AddBool("my_toggle", "Enable feature", defaultValue: true,
+            description: "Description shown below the toggle.")
+        .AddEnum("my_choice", "Pick one", new List<EnumOption>
+        {
+            new EnumOption("a", "Option A"),
+            new EnumOption("b", "Option B"),
+        })
+        .AddSlider("my_slider", "Amount", 0, 100, defaultValue: 50);
+}
+```
+
+Supported setting types: `Bool`, `String`, `Enum`, `Slider`, `DropdownSlider`. Layout elements like `AddSection`, `AddInlineText`, `AddInlineMutedText`, and `AddInlineXaml` are also available. Settings descriptions support basic markdown formatting.
+
+Settings are persisted as TOML in the `apl/config/` directory and can be overridden via environment variables (`APL__PLUGINID__KEY`).
+
+### Minimal Plugin Example
+
+```csharp
+using HarmonyLib;
+using AffinityPluginLoader;
+using AffinityPluginLoader.Settings;
+
+public class MyPlugin : AffinityPlugin
+{
+    public override PluginSettingsDefinition DefineSettings()
+    {
+        return new PluginSettingsDefinition("myplugin")
+            .AddBool("enabled", "Enable patch", defaultValue: true);
+    }
+
+    public override void OnPatch(Harmony harmony, IPluginContext context)
+    {
+        if (context.Settings.GetEffectiveValue<bool>("enabled"))
+        {
+            context.Patch("My patch", h =>
+            {
+                // Use reflection to find target types, then apply Harmony patches
+            });
+        }
+    }
+}
+```
+
+See [WineFix/](WineFix/) for a full working example with multiple patches, settings, and deferred patching.
+
+### Building
 
 Build scripts are provided for Windows and Linux.
 
@@ -41,6 +112,8 @@ Build scripts are provided for Windows and Linux.
 > Developing on Linux? Use `./docker-build.sh` to build inside a Docker container with all dependencies pre-configured. See `docker/Dockerfile` for the full list of build dependencies if you prefer to build on your host system. 
 >
 > APL fully supports building on Linux via mingw-w64 and the dotnet SDK, you'll just need to grab a Windows SDK header and library from Wine.
+
+Use `./deploy.sh` to build and deploy directly to your Affinity install directory for testing.
 
 
 ## Licensing
