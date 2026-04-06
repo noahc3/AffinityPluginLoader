@@ -38,104 +38,106 @@ namespace WineFix.Patches
         private static bool _useExactPixelColor = false;
         private static double _monitorScale = 1.0;
 
+        private const int SRCCOPY = 0x00CC0020;
+
         public static void ApplyPatches(Harmony harmony)
         {
             Logger.Info("Applying ColorPickerWayland patch...");
 
             var serifAssembly = AppDomain.CurrentDomain.GetAssemblies()
                 .FirstOrDefault(a => a.GetName().Name == "Serif.Affinity");
-                var serifWindowsAssembly = AppDomain.CurrentDomain.GetAssemblies()
-                    .FirstOrDefault(a => a.GetName().Name == "Serif.Windows");
-                var personaAssembly = AppDomain.CurrentDomain.GetAssemblies()
-                    .FirstOrDefault(a => a.GetName().Name == "Serif.Interop.Persona");
+            var serifWindowsAssembly = AppDomain.CurrentDomain.GetAssemblies()
+                .FirstOrDefault(a => a.GetName().Name == "Serif.Windows");
+            var personaAssembly = AppDomain.CurrentDomain.GetAssemblies()
+                .FirstOrDefault(a => a.GetName().Name == "Serif.Interop.Persona");
 
-                if (serifAssembly == null || serifWindowsAssembly == null)
+            if (serifAssembly == null || serifWindowsAssembly == null)
+            {
+                Logger.Error("Required assemblies not found");
+                return;
+            }
+
+            // Cache Win32Methods
+            var win32 = serifWindowsAssembly.GetType("Serif.Windows.Win32Methods");
+            _getDCMethod = win32?.GetMethod("GetDC", BindingFlags.Public | BindingFlags.Static);
+            _releaseDCMethod = win32?.GetMethod("ReleaseDC", BindingFlags.Public | BindingFlags.Static);
+            _bitBltMethod = win32?.GetMethod("BitBlt", BindingFlags.Public | BindingFlags.Static);
+            _getWindowRectMethod = win32?.GetMethod("GetWindowRect", BindingFlags.Public | BindingFlags.Static);
+
+            if (_getDCMethod == null || _releaseDCMethod == null || _bitBltMethod == null || _getWindowRectMethod == null)
+            {
+                Logger.Error("Win32Methods API methods not found");
+                return;
+            }
+
+            // Cache RECT type and fields
+            _rectType = serifWindowsAssembly.GetType("Serif.Windows.RECT");
+            if (_rectType != null)
+            {
+                _rectLeftField = _rectType.GetField("Left");
+                _rectTopField = _rectType.GetField("Top");
+                _rectRightField = _rectType.GetField("Right");
+                _rectBottomField = _rectType.GetField("Bottom");
+            }
+
+            // Cache service lookup for RenderControl discovery
+            if (personaAssembly != null)
+            {
+                var docViewServiceType = personaAssembly.GetType("Serif.Interop.Persona.Services.IDocumentViewService");
+                if (docViewServiceType != null)
+                    _currentViewProperty = docViewServiceType.GetProperty("CurrentView");
+
+                var colourRGBType = personaAssembly.GetType("Serif.Interop.Persona.Colours.ColourRGB");
+                if (colourRGBType != null)
+                    _colourRGBConstructor = colourRGBType.GetConstructor(new[] { typeof(double), typeof(double), typeof(double), typeof(double) });
+
+                var app = System.Windows.Application.Current;
+                if (app != null && docViewServiceType != null)
                 {
-                    Logger.Error("Required assemblies not found");
-                    return;
+                    var gsm = app.GetType().GetMethods()
+                        .FirstOrDefault(m => m.Name == "GetService" && m.IsGenericMethod && m.GetParameters().Length == 0);
+                    if (gsm != null)
+                        _getServiceGenericMethod = gsm.MakeGenericMethod(docViewServiceType);
                 }
+            }
 
-                // Cache Win32Methods
-                var win32 = serifWindowsAssembly.GetType("Serif.Windows.Win32Methods");
-                _getDCMethod = win32?.GetMethod("GetDC", BindingFlags.Public | BindingFlags.Static);
-                _releaseDCMethod = win32?.GetMethod("ReleaseDC", BindingFlags.Public | BindingFlags.Static);
-                _bitBltMethod = win32?.GetMethod("BitBlt", BindingFlags.Public | BindingFlags.Static);
-                _getWindowRectMethod = win32?.GetMethod("GetWindowRect", BindingFlags.Public | BindingFlags.Static);
+            // Transpile SaveAllScreens: replace CopyFromScreen with our CaptureCanvas
+            var screenHelperType = serifAssembly.GetType("Serif.Affinity.UI.Controls.ScreenHelper");
+            var saveAllScreens = screenHelperType?.GetMethod("SaveAllScreens",
+                BindingFlags.Public | BindingFlags.Static, null,
+                new[] { typeof(int), typeof(int), typeof(int), typeof(int) }, null);
+            if (saveAllScreens != null)
+            {
+                harmony.Patch(saveAllScreens,
+                    transpiler: new HarmonyMethod(typeof(ColorPickerWaylandPatch), nameof(SaveAllScreens_Transpiler)));
+                Logger.Info("Transpiled ScreenHelper.SaveAllScreens");
+            }
 
-                if (_getDCMethod == null || _releaseDCMethod == null || _bitBltMethod == null || _getWindowRectMethod == null)
-                {
-                    Logger.Error("Win32Methods API methods not found");
-                    return;
-                }
+            // Postfix on CreateZoomImage for Exact color mode
+            var createZoomImage = screenHelperType?.GetMethod("CreateZoomImage", BindingFlags.Public | BindingFlags.Static);
+            if (createZoomImage != null)
+            {
+                harmony.Patch(createZoomImage,
+                    postfix: new HarmonyMethod(typeof(ColorPickerWaylandPatch), nameof(CreateZoomImage_Postfix)));
+                Logger.Info("Patched ScreenHelper.CreateZoomImage (Exact mode postfix)");
+            }
 
-                // Cache RECT type and fields
-                _rectType = serifWindowsAssembly.GetType("Serif.Windows.RECT");
-                if (_rectType != null)
-                {
-                    _rectLeftField = _rectType.GetField("Left");
-                    _rectTopField = _rectType.GetField("Top");
-                    _rectRightField = _rectType.GetField("Right");
-                    _rectBottomField = _rectType.GetField("Bottom");
-                }
+            // Patch StartDragging/FinishDragging to track picker lifecycle and cache HWND
+            var magnifierType = serifAssembly.GetType("Serif.Affinity.UI.Controls.ColourPickerMagnifier");
+            if (magnifierType != null)
+            {
+                var startDragging = magnifierType.GetMethod("StartDragging", BindingFlags.Public | BindingFlags.Instance);
+                if (startDragging != null)
+                    harmony.Patch(startDragging, prefix: new HarmonyMethod(typeof(ColorPickerWaylandPatch), nameof(StartDragging_Prefix)));
 
-                // Cache service lookup for RenderControl discovery
-                if (personaAssembly != null)
-                {
-                    var docViewServiceType = personaAssembly.GetType("Serif.Interop.Persona.Services.IDocumentViewService");
-                    if (docViewServiceType != null)
-                        _currentViewProperty = docViewServiceType.GetProperty("CurrentView");
+                var finishDragging = magnifierType.GetMethod("FinishDragging", BindingFlags.Public | BindingFlags.Instance);
+                if (finishDragging != null)
+                    harmony.Patch(finishDragging, prefix: new HarmonyMethod(typeof(ColorPickerWaylandPatch), nameof(FinishDragging_Prefix)));
 
-                    var colourRGBType = personaAssembly.GetType("Serif.Interop.Persona.Colours.ColourRGB");
-                    if (colourRGBType != null)
-                        _colourRGBConstructor = colourRGBType.GetConstructor(new[] { typeof(double), typeof(double), typeof(double), typeof(double) });
+                Logger.Info("Patched ColourPickerMagnifier StartDragging/FinishDragging");
+            }
 
-                    var app = System.Windows.Application.Current;
-                    if (app != null && docViewServiceType != null)
-                    {
-                        var gsm = app.GetType().GetMethods()
-                            .FirstOrDefault(m => m.Name == "GetService" && m.IsGenericMethod && m.GetParameters().Length == 0);
-                        if (gsm != null)
-                            _getServiceGenericMethod = gsm.MakeGenericMethod(docViewServiceType);
-                    }
-                }
-
-                // Transpile SaveAllScreens: replace CopyFromScreen with our CaptureCanvas
-                var screenHelperType = serifAssembly.GetType("Serif.Affinity.UI.Controls.ScreenHelper");
-                var saveAllScreens = screenHelperType?.GetMethod("SaveAllScreens",
-                    BindingFlags.Public | BindingFlags.Static, null,
-                    new[] { typeof(int), typeof(int), typeof(int), typeof(int) }, null);
-                if (saveAllScreens != null)
-                {
-                    harmony.Patch(saveAllScreens,
-                        transpiler: new HarmonyMethod(typeof(ColorPickerWaylandPatch), nameof(SaveAllScreens_Transpiler)));
-                    Logger.Info("Transpiled ScreenHelper.SaveAllScreens");
-                }
-
-                // Postfix on CreateZoomImage for Exact color mode
-                var createZoomImage = screenHelperType?.GetMethod("CreateZoomImage", BindingFlags.Public | BindingFlags.Static);
-                if (createZoomImage != null)
-                {
-                    harmony.Patch(createZoomImage,
-                        postfix: new HarmonyMethod(typeof(ColorPickerWaylandPatch), nameof(CreateZoomImage_Postfix)));
-                    Logger.Info("Patched ScreenHelper.CreateZoomImage (Exact mode postfix)");
-                }
-
-                // Patch StartDragging/FinishDragging to track picker lifecycle and cache HWND
-                var magnifierType = serifAssembly.GetType("Serif.Affinity.UI.Controls.ColourPickerMagnifier");
-                if (magnifierType != null)
-                {
-                    var startDragging = magnifierType.GetMethod("StartDragging", BindingFlags.Public | BindingFlags.Instance);
-                    if (startDragging != null)
-                        harmony.Patch(startDragging, prefix: new HarmonyMethod(typeof(ColorPickerWaylandPatch), nameof(StartDragging_Prefix)));
-
-                    var finishDragging = magnifierType.GetMethod("FinishDragging", BindingFlags.Public | BindingFlags.Instance);
-                    if (finishDragging != null)
-                        harmony.Patch(finishDragging, prefix: new HarmonyMethod(typeof(ColorPickerWaylandPatch), nameof(FinishDragging_Prefix)));
-
-                    Logger.Info("Patched ColourPickerMagnifier StartDragging/FinishDragging");
-                }
-
-                Logger.Info("ColorPickerWayland patch applied successfully");
+            Logger.Info("ColorPickerWayland patch applied successfully");
         }
 
         // ── Picker lifecycle ──
@@ -184,7 +186,7 @@ namespace WineFix.Patches
                 var gms = inst?.GetType().GetMethod("GetMaximumScale");
                 if (gms != null) _monitorScale = (double)gms.Invoke(inst, null);
             }
-            catch { }
+            catch (Exception ex) { Logger.Debug($"Failed to cache monitor scale: {ex.Message}"); }
         }
 
         public static void FinishDragging_Prefix()
@@ -285,7 +287,7 @@ namespace WineFix.Patches
                     IntPtr hdcSrc = (IntPtr)_getDCMethod.Invoke(null, new object[] { _hwnd });
                     _bitBltMethod.Invoke(null, new object[] {
                         hdcDst, canvasDestX, canvasDestY, winW, winH,
-                        hdcSrc, 0, 0, 0x00CC0020
+                        hdcSrc, 0, 0, SRCCOPY
                     });
                     _releaseDCMethod.Invoke(null, new object[] { _hwnd, hdcSrc });
                 }
