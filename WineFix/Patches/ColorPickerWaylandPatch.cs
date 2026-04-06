@@ -40,12 +40,10 @@ namespace WineFix.Patches
 
         public static void ApplyPatches(Harmony harmony)
         {
-            try
-            {
-                Logger.Info("Applying ColorPickerWayland patch...");
+            Logger.Info("Applying ColorPickerWayland patch...");
 
-                var serifAssembly = AppDomain.CurrentDomain.GetAssemblies()
-                    .FirstOrDefault(a => a.GetName().Name == "Serif.Affinity");
+            var serifAssembly = AppDomain.CurrentDomain.GetAssemblies()
+                .FirstOrDefault(a => a.GetName().Name == "Serif.Affinity");
                 var serifWindowsAssembly = AppDomain.CurrentDomain.GetAssemblies()
                     .FirstOrDefault(a => a.GetName().Name == "Serif.Windows");
                 var personaAssembly = AppDomain.CurrentDomain.GetAssemblies()
@@ -138,11 +136,6 @@ namespace WineFix.Patches
                 }
 
                 Logger.Info("ColorPickerWayland patch applied successfully");
-            }
-            catch (Exception ex)
-            {
-                Logger.Error("Failed to apply ColorPickerWayland patch", ex);
-            }
         }
 
         // ── Picker lifecycle ──
