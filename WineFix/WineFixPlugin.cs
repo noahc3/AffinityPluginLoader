@@ -1,6 +1,8 @@
+using System;
 using System.Collections.Generic;
 using HarmonyLib;
 using AffinityPluginLoader;
+using AffinityPluginLoader.Core;
 using AffinityPluginLoader.Settings;
 
 namespace WineFix
@@ -11,6 +13,7 @@ namespace WineFix
     public class WineFixPlugin : AffinityPlugin
     {
         public const string PluginId = "winefix";
+        public const string ColorPickerMagnifierFixKey = "color_picker_magnifier_fix";
         public const string ColorPickerModeKey = "color_picker_mode";
         public const string SettingForceSyncFontEnum = "force_sync_font_enum";
 
@@ -18,14 +21,24 @@ namespace WineFix
         {
             return new PluginSettingsDefinition(PluginId)
                 .AddSection("Patches")
-                .AddEnum(ColorPickerModeKey, "Color Picker Mode",
+                .AddEnum(ColorPickerMagnifierFixKey, "Color picker: Wayland zoom magnifier fix",
+                    new List<EnumOption>
+                    {
+                        new EnumOption("auto", "Auto"),
+                        new EnumOption("enabled", "Enabled"),
+                        new EnumOption("disabled", "Disabled")
+                    },
+                    defaultValue: "auto",
+                    restartRequired: true,
+                    description: "Patch the color picker zoom preview to work under Wayland. This should only be enabled when running under Wayland or XWayland, enabling this on X11 desktop environments will prevent the zoom preview from displaying content outside the bounds of the window canvas.\n• Auto: Automatically apply if Wayland or XWayland is detected.\n• Enabled: Always apply.\n• Disabled: Never apply.")
+                .AddEnum(ColorPickerModeKey, "Color picker: color value selection mode",
                     new List<EnumOption>
                     {
                         new EnumOption("native", "Native"),
                         new EnumOption("exact", "Exact")
                     },
                     defaultValue: "native",
-                    description: "Native uses Affinity's built-in color picking which may differ from the zoom preview pixel. Exact picks the exact color of the highlighted pixel in the zoom preview.")
+                    description: "• Native: Use Affinity's built-in color picking which may differ from the zoom preview pixel.\n• Exact: Pick the exact color of the highlighted pixel in the zoom preview.")
                 .AddSection("Crash Fixes")
                 .AddBool(SettingForceSyncFontEnum, "Force synchronous font enumeration",
                     defaultValue: true,
@@ -44,8 +57,19 @@ namespace WineFix
                     h => Patches.FontEnumerationPatch.ApplyPatches(h));
             }
 
-            context.Patch("ColorPicker Wayland fix",
-                h => Patches.ColorPickerWaylandPatch.ApplyPatches(h));
+            var magnifierFix = context.Settings.GetEffectiveValue<string>(ColorPickerMagnifierFixKey);
+            bool applyMagnifierFix = magnifierFix == "enabled" ||
+                (magnifierFix == "auto" && !string.IsNullOrEmpty(Environment.GetEnvironmentVariable("WAYLAND_DISPLAY")));
+
+            if (applyMagnifierFix)
+            {
+                context.Patch("ColorPicker Wayland fix",
+                    h => Patches.ColorPickerWaylandPatch.ApplyPatches(h));
+            }
+            else
+            {
+                Logger.Info("Skipping ColorPicker Wayland fix (setting: " + magnifierFix + ")");
+            }
         }
     }
 }
