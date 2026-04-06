@@ -178,7 +178,7 @@ namespace AffinityPluginLoader.UI
 
         private static UIElement CreateEnumRow(EnumSetting setting, SettingsBindingSource source, System.Reflection.Assembly serifAssembly)
         {
-            var comboBox = new ComboBox { Width = 210, Margin = new Thickness(2) };
+            var comboBox = new ComboBox { Margin = new Thickness(2) };
             foreach (var option in setting.Options)
                 comboBox.Items.Add(new ComboBoxItem { Content = option.DisplayName, Tag = option.Value });
 
