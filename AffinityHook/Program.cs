@@ -219,14 +219,43 @@ namespace AffinityPluginLoader
                 
                 Console.WriteLine($"Using native bootstrap: {bootstrapPath}");
                 
-                // Wait a moment for process to initialize
-                Thread.Sleep(500);
+                // Poll until we can open the process
+                IntPtr hProcess = IntPtr.Zero;
+                for (int i = 0; i < 50; i++)
+                {
+                    hProcess = OpenProcess(PROCESS_ALL_ACCESS, false, processId);
+                    if (hProcess != IntPtr.Zero)
+                        break;
+                    Thread.Sleep(10);
+                }
                 
-                // Open process with full access
-                IntPtr hProcess = OpenProcess(PROCESS_ALL_ACCESS, false, processId);
                 if (hProcess == IntPtr.Zero)
                 {
-                    throw new Exception($"Failed to open process. Error: {Marshal.GetLastWin32Error()}");
+                    throw new Exception($"Failed to open process after polling. Error: {Marshal.GetLastWin32Error()}");
+                }
+                
+                // Wait for CLR to be fully initialized by polling for clrjit.dll,
+                // one of the last modules loaded during CLR startup.
+                // Injecting before the CLR is ready causes a fatal crash (80131506).
+                Console.WriteLine("Waiting for CLR to initialize in target process...");
+                bool clrReady = false;
+                for (int i = 0; i < 300; i++) // 300 * 10ms = 3s max
+                {
+                    if (ProcessHasModule(processId, "clrjit.dll"))
+                    {
+                        clrReady = true;
+                        break;
+                    }
+                    Thread.Sleep(10);
+                }
+                
+                if (!clrReady)
+                {
+                    Console.WriteLine("WARNING: CLR may not be fully initialized, proceeding anyway...");
+                }
+                else
+                {
+                    Console.WriteLine("CLR initialized, injecting...");
                 }
                 
                 try
@@ -303,6 +332,62 @@ namespace AffinityPluginLoader
         private const uint MEM_COMMIT = 0x1000;
         private const uint MEM_RESERVE = 0x2000;
         private const uint PAGE_READWRITE = 0x04;
+        private const uint TH32CS_SNAPMODULE = 0x00000008;
+        private const uint TH32CS_SNAPMODULE32 = 0x00000010;
+        
+        [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
+        private struct MODULEENTRY32W
+        {
+            public uint dwSize;
+            public uint th32ModuleID;
+            public uint th32ProcessID;
+            public uint GlblcntUsage;
+            public uint ProccntUsage;
+            public IntPtr modBaseAddr;
+            public uint modBaseSize;
+            public IntPtr hModule;
+            [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 256)]
+            public string szModule;
+            [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 260)]
+            public string szExePath;
+        }
+        
+        private static bool ProcessHasModule(int processId, string moduleName)
+        {
+            IntPtr snap = CreateToolhelp32Snapshot(TH32CS_SNAPMODULE | TH32CS_SNAPMODULE32, (uint)processId);
+            if (snap == IntPtr.Zero || snap == new IntPtr(-1))
+                return false;
+            
+            try
+            {
+                var entry = new MODULEENTRY32W();
+                entry.dwSize = (uint)Marshal.SizeOf(typeof(MODULEENTRY32W));
+                
+                if (!Module32FirstW(snap, ref entry))
+                    return false;
+                
+                do
+                {
+                    if (entry.szModule.Equals(moduleName, StringComparison.OrdinalIgnoreCase))
+                        return true;
+                } while (Module32NextW(snap, ref entry));
+                
+                return false;
+            }
+            finally
+            {
+                CloseHandle(snap);
+            }
+        }
+        
+        [DllImport("kernel32.dll", SetLastError = true)]
+        private static extern IntPtr CreateToolhelp32Snapshot(uint dwFlags, uint th32ProcessID);
+        
+        [DllImport("kernel32.dll", SetLastError = true, CharSet = CharSet.Unicode)]
+        private static extern bool Module32FirstW(IntPtr hSnapshot, ref MODULEENTRY32W lpme);
+        
+        [DllImport("kernel32.dll", SetLastError = true, CharSet = CharSet.Unicode)]
+        private static extern bool Module32NextW(IntPtr hSnapshot, ref MODULEENTRY32W lpme);
         
         [DllImport("kernel32.dll", SetLastError = true)]
         private static extern IntPtr GetModuleHandle(string lpModuleName);

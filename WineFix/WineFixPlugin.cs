@@ -1,29 +1,17 @@
-using System;
 using HarmonyLib;
-using AffinityPluginLoader.Core;
+using AffinityPluginLoader;
 
 namespace WineFix
 {
     /// <summary>
     /// WineFix Plugin - Bug fixes for running Affinity under Wine
     /// </summary>
-    public class WineFixPlugin : AffinityPluginLoader.AffinityPlugin
+    public class WineFixPlugin : AffinityPlugin
     {
-        public override void Initialize(Harmony harmony)
+        public override void OnPatch(Harmony harmony, IPluginContext context)
         {
-            try
-            {
-                Logger.Info($"WineFix plugin initializing...");
-
-                // Apply Wine compatibility patches
-                Patches.MainWindowLoadedPatch.ApplyPatches(harmony);
-
-                Logger.Info($"WineFix plugin initialized successfully");
-            }
-            catch (Exception ex)
-            {
-                Logger.Error("Error initializing WineFix", ex);
-            }
+            context.Patch("MainWindowLoaded fix",
+                h => Patches.MainWindowLoadedPatch.ApplyPatches(h));
         }
     }
 }
