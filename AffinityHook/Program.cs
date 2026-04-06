@@ -219,7 +219,8 @@ namespace AffinityPluginLoader
                 
                 Console.WriteLine($"Using native bootstrap: {bootstrapPath}");
                 
-                // Wait a moment for process to initialize
+                // Wait for process to initialize CLR before injecting
+                // Wine 7.9 needs more time than newer versions
                 Thread.Sleep(500);
                 
                 // Open process with full access

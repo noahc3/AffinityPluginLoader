@@ -17,48 +17,37 @@ namespace WineFix.Patches
     {
         public static void ApplyPatches(Harmony harmony)
         {
-            try
+            Logger.Info("Applying MainWindowLoaded patch (Wine fix)...");
+
+            var serifAssembly = AppDomain.CurrentDomain.GetAssemblies()
+                .FirstOrDefault(a => a.GetName().Name == "Serif.Affinity");
+
+            if (serifAssembly == null)
             {
-                Logger.Info($"Applying MainWindowLoaded patch (Wine fix)...");
-
-                // Find the Serif.Affinity assembly
-                var serifAssembly = AppDomain.CurrentDomain.GetAssemblies()
-                    .FirstOrDefault(a => a.GetName().Name == "Serif.Affinity");
-
-                if (serifAssembly == null)
-                {
-                    Logger.Error($"ERROR: Serif.Affinity assembly not found");
-                    return;
-                }
-
-                // Get the Application type
-                var applicationType = serifAssembly.GetType("Serif.Affinity.Application");
-                if (applicationType == null)
-                {
-                    Logger.Error($"ERROR: Application type not found");
-                    return;
-                }
-                
-                // Find OnMainWindowLoaded method
-                var onMainWindowLoaded = applicationType.GetMethod("OnMainWindowLoaded", 
-                    BindingFlags.NonPublic | BindingFlags.Instance);
-                
-                if (onMainWindowLoaded != null)
-                {
-                    // Use transpiler to modify the IL
-                    var transpiler = typeof(MainWindowLoadedPatch).GetMethod(nameof(OnMainWindowLoaded_Transpiler),
-                        BindingFlags.Static | BindingFlags.Public);
-                    harmony.Patch(onMainWindowLoaded, transpiler: new HarmonyMethod(transpiler));
-                    Logger.Info($"Patched OnMainWindowLoaded to skip HasPreviousPackageInstalled call");
-                }
-                else
-                {
-                    Logger.Error($"ERROR: OnMainWindowLoaded method not found");
-                }
+                Logger.Error("Serif.Affinity assembly not found");
+                return;
             }
-            catch (Exception ex)
+
+            var applicationType = serifAssembly.GetType("Serif.Affinity.Application");
+            if (applicationType == null)
             {
-                Logger.Error("Failed to apply MainWindowLoaded patch", ex);
+                Logger.Error("Application type not found");
+                return;
+            }
+            
+            var onMainWindowLoaded = applicationType.GetMethod("OnMainWindowLoaded", 
+                BindingFlags.NonPublic | BindingFlags.Instance);
+            
+            if (onMainWindowLoaded != null)
+            {
+                var transpiler = typeof(MainWindowLoadedPatch).GetMethod(nameof(OnMainWindowLoaded_Transpiler),
+                    BindingFlags.Static | BindingFlags.Public);
+                harmony.Patch(onMainWindowLoaded, transpiler: new HarmonyMethod(transpiler));
+                Logger.Info("Patched OnMainWindowLoaded to skip HasPreviousPackageInstalled call");
+            }
+            else
+            {
+                Logger.Error("OnMainWindowLoaded method not found");
             }
         }
 

@@ -21,13 +21,17 @@ namespace AffinityPluginLoader.Core
 
     public static class PluginManager
     {
-        private static List<PluginInfo> _loadedPlugins = new List<PluginInfo>();
-        private static Dictionary<string, SettingsStore> _settingsStores = new Dictionary<string, SettingsStore>(StringComparer.OrdinalIgnoreCase);
-        private static Dictionary<string, AffinityPlugin> _pluginInstances = new Dictionary<string, AffinityPlugin>(StringComparer.OrdinalIgnoreCase);
-        private static bool _initialized = false;
+        private static readonly List<PluginInfo> _loadedPlugins = new List<PluginInfo>();
+        private static readonly Dictionary<string, SettingsStore> _settingsStores = new Dictionary<string, SettingsStore>(StringComparer.OrdinalIgnoreCase);
+        private static readonly Dictionary<string, AffinityPlugin> _pluginInstances = new Dictionary<string, AffinityPlugin>(StringComparer.OrdinalIgnoreCase);
+        private static readonly Dictionary<string, PluginContext> _pluginContexts = new Dictionary<string, PluginContext>(StringComparer.OrdinalIgnoreCase);
         private static string _configDirectory;
+        private static Harmony _harmony;
+        private static LoadStage _currentStage = (LoadStage)(-1);
 
         public static IReadOnlyList<PluginInfo> LoadedPlugins => _loadedPlugins.AsReadOnly();
+        public static IReadOnlyDictionary<string, SettingsStore> PluginSettings => _settingsStores;
+        public static LoadStage CurrentStage => _currentStage;
 
         public static SettingsStore GetSettingsStore(string pluginId)
         {
@@ -41,54 +45,101 @@ namespace AffinityPluginLoader.Core
             return instance;
         }
 
-        public static IReadOnlyDictionary<string, SettingsStore> PluginSettings => _settingsStores;
-
-        public static void Initialize(Harmony harmony)
+        /// <summary>
+        /// Stage 0: Discover plugins, load settings from TOML, call OnLoad.
+        /// No Affinity assemblies required.
+        /// </summary>
+        public static void RunStageLoad()
         {
-            if (_initialized)
-                return;
+            _currentStage = LoadStage.Load;
+            Logger.Info("=== Stage 0: OnLoad ===");
 
-            Logger.Info($"PluginManager initializing...");
+            _harmony = new Harmony("dev.ncuroe.affinitypluginloader");
 
-            // Determine config directory: <install-dir>/apl/config
+            // Determine config directory
             var loaderPath = Assembly.GetExecutingAssembly().Location;
             var loaderDir = Path.GetDirectoryName(loaderPath);
             _configDirectory = Path.Combine(loaderDir, "apl", "config");
 
-            // Add APL itself as the first plugin
-            var loaderAssembly = Assembly.GetExecutingAssembly();
-            var loaderProductAttr = loaderAssembly.GetCustomAttribute<AssemblyProductAttribute>();
-            var loaderVersionAttr = loaderAssembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>();
-            var loaderCompanyAttr = loaderAssembly.GetCustomAttribute<AssemblyCompanyAttribute>();
-            var loaderDescAttr = loaderAssembly.GetCustomAttribute<AssemblyDescriptionAttribute>();
+            // Register APL itself as a plugin
+            RegisterAplAsPlugin();
 
-            var loaderInfo = new PluginInfo
-            {
-                Name = loaderProductAttr?.Product ?? loaderAssembly.GetName().Name,
-                Version = FormatVersion(loaderVersionAttr?.InformationalVersion, loaderAssembly.GetName().Version),
-                Author = loaderCompanyAttr?.Company ?? "Unknown",
-                AssemblyName = loaderAssembly.FullName,
-                Description = loaderDescAttr?.Description ?? "",
-                PluginId = "apl"
-            };
-            _loadedPlugins.Add(loaderInfo);
-            Logger.Info($"Added APL to plugin list: {loaderInfo.Name} v{loaderInfo.Version}");
-
-            // Register APL's own settings (dogfooding the Preferences API)
+            // Register APL's own settings
             RegisterSettings(AplSettings.PluginId, AplSettings.CreateDefinition());
 
-            // Apply loader's own patches (version strings, preferences tab)
-            Patches.LoaderPatches.ApplyPatches(harmony, loaderInfo);
+            // Discover and load plugin DLLs (creates instances, loads settings, but does NOT patch)
+            DiscoverPlugins();
 
-            // Load plugins from ./plugins/ directory
-            LoadPlugins(harmony);
+            // Call OnLoad on all plugins
+            foreach (var kvp in _pluginInstances)
+            {
+                var ctx = GetOrCreateContext(kvp.Key);
+                ctx.CurrentStage = LoadStage.Load;
+                try
+                {
+                    kvp.Value.OnLoad(ctx);
+                }
+                catch (Exception ex)
+                {
+                    Logger.Error($"Error in {kvp.Key}.OnLoad", ex);
+                }
+            }
 
-            _initialized = true;
-            Logger.Info($"PluginManager initialized with {_loadedPlugins.Count} plugins");
+            Logger.Info($"Stage 0 complete: {_loadedPlugins.Count} plugins discovered, settings loaded");
         }
 
         /// <summary>
-        /// Register settings for a plugin (called by APL for its own settings, or during plugin load).
+        /// Stage 1: Serif assemblies are loaded. Apply Harmony patches.
+        /// </summary>
+        public static void RunStagePatch()
+        {
+            _currentStage = LoadStage.Patch;
+            Logger.Info("=== Stage 1: OnPatch ===");
+
+            // Apply APL's own patches as separate deferrable units
+            var aplInfo = _loadedPlugins.FirstOrDefault(p => p.PluginId == "apl");
+            RunWithAutoDefer("APL:VersionPatches", () =>
+                Patches.LoaderPatches.ApplyVersionPatches(_harmony, aplInfo));
+            RunWithAutoDefer("APL:PreferencesPatches", () =>
+                Patches.PreferencesPatches.ApplyPatches(_harmony));
+
+            // Call OnPatch on all plugins
+            foreach (var kvp in _pluginInstances)
+            {
+                var id = kvp.Key;
+                var plugin = kvp.Value;
+                var ctx = GetOrCreateContext(id);
+                ctx.CurrentStage = LoadStage.Patch;
+
+                RunWithAutoDefer($"{id}:OnPatch", () => plugin.OnPatch(_harmony, ctx));
+            }
+
+            Logger.Info("Stage 1 complete: patches applied");
+        }
+
+        /// <summary>
+        /// Run an action. If it throws TypeLoadException (transitive dependency not loaded),
+        /// automatically defer it for retry on subsequent assembly loads.
+        /// Other exceptions are logged and swallowed.
+        /// </summary>
+        internal static void RunWithAutoDefer(string description, Action action)
+        {
+            try
+            {
+                action();
+            }
+            catch (Exception ex) when (EntryPoint.IsTypeLoadException(ex))
+            {
+                EntryPoint.AddDeferredPatch(description, action);
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"Error in {description}", ex);
+            }
+        }
+
+        /// <summary>
+        /// Register settings for a plugin. Creates and loads the SettingsStore from TOML.
         /// </summary>
         public static void RegisterSettings(string pluginId, PluginSettingsDefinition definition)
         {
@@ -98,10 +149,9 @@ namespace AffinityPluginLoader.Core
             var store = new SettingsStore(definition, _configDirectory);
             store.AssignSections();
             store.Load();
-            store.Save(); // Write defaults to disk so users can edit the TOML manually
+            store.Save(); // Write defaults so users can edit TOML manually
             _settingsStores[pluginId] = store;
 
-            // Update PluginInfo
             var info = _loadedPlugins.FirstOrDefault(p => p.PluginId == pluginId);
             if (info != null)
                 info.HasSettings = true;
@@ -109,119 +159,127 @@ namespace AffinityPluginLoader.Core
             Logger.Info($"Registered settings for plugin: {pluginId}");
         }
 
-        private static void LoadPlugins(Harmony harmony)
+        // ── Private helpers ──
+
+        private static void RegisterAplAsPlugin()
         {
-            try
+            var asm = Assembly.GetExecutingAssembly();
+            var product = asm.GetCustomAttribute<AssemblyProductAttribute>();
+            var version = asm.GetCustomAttribute<AssemblyInformationalVersionAttribute>();
+            var company = asm.GetCustomAttribute<AssemblyCompanyAttribute>();
+            var desc = asm.GetCustomAttribute<AssemblyDescriptionAttribute>();
+
+            _loadedPlugins.Add(new PluginInfo
             {
-                var loaderPath = Assembly.GetExecutingAssembly().Location;
-                var loaderDir = Path.GetDirectoryName(loaderPath);
-                var pluginsDir = Path.Combine(loaderDir, "plugins");
+                Name = product?.Product ?? asm.GetName().Name,
+                Version = FormatVersion(version?.InformationalVersion, asm.GetName().Version),
+                Author = company?.Company ?? "Unknown",
+                AssemblyName = asm.FullName,
+                Description = desc?.Description ?? "",
+                PluginId = "apl"
+            });
+        }
 
-                Logger.Debug($"Looking for plugins in: {pluginsDir}");
+        private static void DiscoverPlugins()
+        {
+            var loaderDir = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location);
+            var pluginsDir = Path.Combine(loaderDir, "plugins");
 
-                if (!Directory.Exists(pluginsDir))
-                {
-                    Logger.Info($"Plugins directory not found, creating it...");
-                    Directory.CreateDirectory(pluginsDir);
-                    return;
-                }
-
-                var pluginFiles = Directory.GetFiles(pluginsDir, "*.dll");
-                Logger.Debug($"Found {pluginFiles.Length} DLL files in plugins directory");
-
-                foreach (var pluginFile in pluginFiles)
-                {
-                    try
-                    {
-                        LoadPlugin(pluginFile, harmony);
-                    }
-                    catch (Exception ex)
-                    {
-                        Logger.Error($"Failed to load plugin {Path.GetFileName(pluginFile)}: {ex.Message}");
-                    }
-                }
+            if (!Directory.Exists(pluginsDir))
+            {
+                Logger.Info("Plugins directory not found, creating it...");
+                Directory.CreateDirectory(pluginsDir);
+                return;
             }
-            catch (Exception ex)
+
+            foreach (var pluginFile in Directory.GetFiles(pluginsDir, "*.dll"))
             {
-                Logger.Error("Error loading plugins", ex);
+                try
+                {
+                    LoadPluginAssembly(pluginFile);
+                }
+                catch (Exception ex)
+                {
+                    Logger.Error($"Failed to load plugin {Path.GetFileName(pluginFile)}: {ex.Message}");
+                }
             }
         }
 
-        private static void LoadPlugin(string pluginPath, Harmony harmony)
+        private static void LoadPluginAssembly(string pluginPath)
         {
             Logger.Debug($"Loading plugin: {Path.GetFileName(pluginPath)}");
 
             var assembly = Assembly.LoadFrom(pluginPath);
-            var productAttr = assembly.GetCustomAttribute<AssemblyProductAttribute>();
-            var versionAttr = assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>();
-            var companyAttr = assembly.GetCustomAttribute<AssemblyCompanyAttribute>();
-            var descAttr = assembly.GetCustomAttribute<AssemblyDescriptionAttribute>();
+            var product = assembly.GetCustomAttribute<AssemblyProductAttribute>();
+            var version = assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>();
+            var company = assembly.GetCustomAttribute<AssemblyCompanyAttribute>();
+            var desc = assembly.GetCustomAttribute<AssemblyDescriptionAttribute>();
 
-            var pluginName = productAttr?.Product ?? assembly.GetName().Name;
+            var pluginName = product?.Product ?? assembly.GetName().Name;
             var pluginId = pluginName.ToLowerInvariant().Replace(' ', '-');
 
             var pluginInfo = new PluginInfo
             {
                 Name = pluginName,
-                Version = FormatVersion(versionAttr?.InformationalVersion, assembly.GetName().Version),
-                Author = companyAttr?.Company ?? "Unknown",
+                Version = FormatVersion(version?.InformationalVersion, assembly.GetName().Version),
+                Author = company?.Company ?? "Unknown",
                 AssemblyName = assembly.FullName,
-                Description = descAttr?.Description ?? "",
+                Description = desc?.Description ?? "",
                 PluginId = pluginId
             };
 
-            // Find AffinityPlugin implementations
+            // Find and instantiate AffinityPlugin implementations
             var pluginTypes = assembly.GetTypes()
                 .Where(t => !t.IsAbstract && typeof(AffinityPlugin).IsAssignableFrom(t))
                 .ToList();
 
-            if (pluginTypes.Any())
+            foreach (var pluginType in pluginTypes)
             {
-                foreach (var pluginType in pluginTypes)
+                try
                 {
-                    try
-                    {
-                        var plugin = (AffinityPlugin)Activator.CreateInstance(pluginType);
-                        plugin.Initialize(harmony);
-                        Logger.Info($"Initialized plugin: {pluginType.Name}");
+                    var plugin = (AffinityPlugin)Activator.CreateInstance(pluginType);
+                    _pluginInstances[pluginId] = plugin;
 
-                        _pluginInstances[pluginId] = plugin;
+                    // Wire up settings immediately (before OnLoad)
+                    var settingsDef = plugin.DefineSettings();
+                    if (settingsDef != null)
+                        RegisterSettings(pluginId, settingsDef);
 
-                        // Wire up settings
-                        var settingsDef = plugin.DefineSettings();
-                        if (settingsDef != null)
-                            RegisterSettings(pluginId, settingsDef);
-                    }
-                    catch (Exception ex)
-                    {
-                        Logger.Error($"Failed to initialize {pluginType.Name}: {ex.Message}");
-                    }
+                    Logger.Info($"Discovered plugin: {pluginType.Name}");
                 }
-            }
-            else
-            {
-                Logger.Info($"No AffinityPlugin implementation found in {Path.GetFileName(pluginPath)}");
+                catch (Exception ex)
+                {
+                    Logger.Error($"Failed to instantiate {pluginType.Name}: {ex.Message}");
+                }
             }
 
             _loadedPlugins.Add(pluginInfo);
             Logger.Info($"Plugin loaded: {pluginInfo.Name} v{pluginInfo.Version} by {pluginInfo.Author}");
         }
 
-        /// <summary>
-        /// Format version string, truncating git hash to 8 chars if present
-        /// </summary>
-        private static string FormatVersion(string informationalVersion, Version assemblyVersion)
+        private static PluginContext GetOrCreateContext(string pluginId)
+        {
+            if (!_pluginContexts.TryGetValue(pluginId, out var ctx))
+            {
+                _settingsStores.TryGetValue(pluginId, out var store);
+                ctx = new PluginContext(pluginId, _harmony, store);
+                _pluginContexts[pluginId] = ctx;
+            }
+            return ctx;
+        }
+
+        internal static string FormatVersion(string informationalVersion, Version assemblyVersion)
         {
             if (!string.IsNullOrEmpty(informationalVersion))
             {
                 int plusIndex = informationalVersion.IndexOf('+');
                 if (plusIndex > 0 && plusIndex < informationalVersion.Length - 1)
                 {
-                    string version = informationalVersion.Substring(0, plusIndex);
+                    string ver = informationalVersion.Substring(0, plusIndex);
                     string hash = informationalVersion.Substring(plusIndex + 1);
                     if (hash.Length > 8)
                         hash = hash.Substring(0, 8);
-                    return $"{version}+{hash}";
+                    return $"{ver}+{hash}";
                 }
                 return informationalVersion;
             }
