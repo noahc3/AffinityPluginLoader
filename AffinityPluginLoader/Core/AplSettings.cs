@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using AffinityPluginLoader.Settings;
 
 namespace AffinityPluginLoader.Core
@@ -10,6 +11,8 @@ namespace AffinityPluginLoader.Core
         public const string PluginId = "apl";
 
         // Setting keys
+        public const string FileLogging = "file_logging";
+        public const string LogLevel = "log_level";
         public const string ForceWpfControls = "force_wpf_controls";
 
         // Plugin list XAML — each plugin rendered as its own PanelStyle box
@@ -58,6 +61,21 @@ namespace AffinityPluginLoader.Core
             return new PluginSettingsDefinition(PluginId)
                 .AddSection("Loaded Plugins")
                 .AddInlineXaml(PluginListXaml, PluginManager.LoadedPlugins)
+                .AddSection("Logging")
+                .AddBool(FileLogging, "Enable logging to file",
+                    defaultValue: false,
+                    description: "Write APL and plugin log output to plugins/logs/apl.latest.log.")
+                .AddEnum(LogLevel, "Log level",
+                    new List<EnumOption>
+                    {
+                        new EnumOption("DEBUG", "Debug"),
+                        new EnumOption("INFO", "Info"),
+                        new EnumOption("WARNING", "Warning"),
+                        new EnumOption("ERROR", "Error"),
+                        new EnumOption("NONE", "None"),
+                    },
+                    defaultValue: "INFO",
+                    description: "Minimum severity level for log messages.")
                 .AddSection("Advanced")
                 .AddBool(ForceWpfControls, "Force WPF fallback controls",
                     description: "Use standard WPF controls instead of Affinity's built-in controls for plugin preferences pages.",

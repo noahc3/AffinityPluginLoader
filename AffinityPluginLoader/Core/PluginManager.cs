@@ -67,6 +67,9 @@ namespace AffinityPluginLoader.Core
             // Register APL's own settings
             RegisterSettings(AplSettings.PluginId, AplSettings.CreateDefinition());
 
+            // Apply logging settings now that the store is loaded
+            Logger.ApplySettings(_settingsStores[AplSettings.PluginId]);
+
             // Discover and load plugin DLLs (creates instances, loads settings, but does NOT patch)
             DiscoverPlugins();
 
