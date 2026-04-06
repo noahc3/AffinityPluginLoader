@@ -96,6 +96,10 @@ namespace AffinityPluginLoader.Core
             _currentStage = LoadStage.Patch;
             Logger.Info("=== Stage 1: OnPatch ===");
 
+            // Hook Affinity lifecycle methods for Stages 2-4
+            RunWithAutoDefer("APL:LifecyclePatches", () =>
+                Patches.LifecyclePatches.ApplyPatches(_harmony));
+
             // Apply APL's own patches as separate deferrable units
             var aplInfo = _loadedPlugins.FirstOrDefault(p => p.PluginId == "apl");
             RunWithAutoDefer("APL:VersionPatches", () =>
@@ -115,6 +119,43 @@ namespace AffinityPluginLoader.Core
             }
 
             Logger.Info("Stage 1 complete: patches applied");
+        }
+
+        /// <summary>
+        /// Run Stages 2-4. Called by lifecycle postfix patches.
+        /// </summary>
+        public static void RunStage(LoadStage stage)
+        {
+            _currentStage = stage;
+            var stageName = stage.ToString();
+            Logger.Info($"=== Stage {(int)stage}: {stageName} ===");
+
+            foreach (var kvp in _pluginInstances)
+            {
+                var ctx = GetOrCreateContext(kvp.Key);
+                ctx.CurrentStage = stage;
+                try
+                {
+                    switch (stage)
+                    {
+                        case LoadStage.ServicesReady:
+                            kvp.Value.OnServicesReady(ctx);
+                            break;
+                        case LoadStage.Ready:
+                            kvp.Value.OnReady(ctx);
+                            break;
+                        case LoadStage.UiReady:
+                            kvp.Value.OnUiReady(ctx);
+                            break;
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Logger.Error($"Error in {kvp.Key}.{stageName}", ex);
+                }
+            }
+
+            Logger.Info($"Stage {(int)stage} complete");
         }
 
         /// <summary>
