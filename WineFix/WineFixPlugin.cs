@@ -14,7 +14,7 @@ namespace WineFix
     {
         public const string PluginId = "winefix";
         public const string ColorPickerMagnifierFixKey = "color_picker_magnifier_fix";
-        public const string ColorPickerModeKey = "color_picker_mode";
+        public const string ColorPickerModeKey = "color_picker_sampling_mode";
         public const string SettingForceSyncFontEnum = "force_sync_font_enum";
 
         public override PluginSettingsDefinition DefineSettings()
@@ -30,15 +30,15 @@ namespace WineFix
                     },
                     defaultValue: "auto",
                     restartRequired: true,
-                    description: "Patch the color picker zoom preview to work under Wayland. This should only be enabled when running under Wayland or XWayland, enabling this on X11 desktop environments will prevent the zoom preview from displaying content outside the bounds of the window canvas.\n• Auto: Automatically apply if Wayland or XWayland is detected.\n• Enabled: Always apply.\n• Disabled: Never apply.")
-                .AddEnum(ColorPickerModeKey, "Color picker: color value selection mode",
+                    description: "Patch the color picker zoom preview to work under Wayland. This should only be enabled when running under Wayland or XWayland, enabling this on X11 desktop environments will prevent the zoom preview from displaying content outside the bounds of the window canvas.\n- **Auto:** Automatically apply if Wayland or XWayland is detected.\n- **Enabled:** Always apply.\n- **Disabled:** Never apply.")
+                .AddEnum(ColorPickerModeKey, "Color picker: color value sampling mode",
                     new List<EnumOption>
                     {
                         new EnumOption("native", "Native"),
                         new EnumOption("exact", "Exact")
                     },
                     defaultValue: "native",
-                    description: "• Native: Use Affinity's built-in color sampling. Colors sampled within the canvas bounds will use the native document color space, but the color of the highlighted pixel in the zoom preview may differ slightly from the actual color value sampled.\n• Exact: Pick the exact color of the highlighted pixel in the zoom preview. Samples from a screen capture in sRGB rather than the document's native color space.")
+                    description: "- **Native:** Use Affinity's built-in color sampling. Colors sampled within the canvas bounds will use the native document color space, but the color of the highlighted pixel in the zoom preview may differ slightly from the actual color value sampled.\n- **Exact:** Pick the exact color of the highlighted pixel in the zoom preview. Samples from a screen capture in sRGB rather than the document's native color space. May be more intuitive, but not recommended when editing documents using CMYK or wide-gamut color spaces.")
                 .AddSection("Crash Fixes")
                 .AddBool(SettingForceSyncFontEnum, "Force synchronous font enumeration",
                     defaultValue: true,
