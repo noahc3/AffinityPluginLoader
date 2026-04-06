@@ -10,7 +10,7 @@
   <PropertyGroup>
     <Product>Affinity Plugin Loader</Product>
     <Description>Plugin loader for 'Affinity by Canva'.</Description>
-    <Version>0.2.0</Version>
+    <Version>0.3.0</Version>
     <Company>Noah Curoe &amp; APL Contributors</Company>
     <!-- Disable git hash in Release builds -->
     <IncludeSourceRevisionInInformationalVersion Condition="'$(Configuration)' == 'Release'">false</IncludeSourceRevisionInInformationalVersion>

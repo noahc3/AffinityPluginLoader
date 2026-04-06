@@ -10,7 +10,7 @@
   <PropertyGroup>
     <Product>WineFix</Product>
     <Description>Plugin to fix Wine compatibility issues in Affinity applications</Description>
-    <Version>0.2.0</Version>
+    <Version>0.3.0</Version>
     <Company>Noah Curoe &amp; WineFix Contributors</Company>
     <!-- Disable git hash in Release builds -->
     <IncludeSourceRevisionInInformationalVersion Condition="'$(Configuration)' == 'Release'">false</IncludeSourceRevisionInInformationalVersion>

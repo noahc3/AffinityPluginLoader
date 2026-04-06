@@ -10,7 +10,7 @@
   <PropertyGroup>
     <Product>AffinityHook</Product>
     <Description>Launch wrapper to hook Affinity and inject AffinityBootstrap</Description>
-    <Version>0.2.0</Version>
+    <Version>0.3.0</Version>
     <Company>Noah Curoe &amp; AffinityHook Contributors</Company>
     <!-- Disable git hash in Release builds -->
     <IncludeSourceRevisionInInformationalVersion Condition="'$(Configuration)' == 'Release'">false</IncludeSourceRevisionInInformationalVersion>
