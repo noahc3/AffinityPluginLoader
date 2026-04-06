@@ -4,6 +4,9 @@ using AffinityPluginLoader.Settings;
 
 namespace WineFix
 {
+    /// <summary>
+    /// WineFix Plugin - Bug fixes for running Affinity under Wine
+    /// </summary>
     public class WineFixPlugin : AffinityPlugin
     {
         public const string SettingForceSyncFontEnum = "force_sync_font_enum";
