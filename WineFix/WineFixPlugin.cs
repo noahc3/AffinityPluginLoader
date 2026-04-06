@@ -17,11 +17,6 @@ namespace WineFix
         public override PluginSettingsDefinition DefineSettings()
         {
             return new PluginSettingsDefinition(PluginId)
-                .AddSection("Crash Fixes")
-                .AddBool(SettingForceSyncFontEnum, "Force synchronous font enumeration",
-                    defaultValue: true,
-                    restartRequired: true,
-                    description: "Disable parallel font enumeration to significantly reduce frequency of startup crashes. May increase application startup time on systems with lots of fonts.")
                 .AddSection("Patches")
                 .AddEnum(ColorPickerModeKey, "Color Picker Mode",
                     new List<EnumOption>
@@ -30,7 +25,12 @@ namespace WineFix
                         new EnumOption("exact", "Exact")
                     },
                     defaultValue: "native",
-                    description: "Native uses Affinity's built-in color picking which may differ from the zoom preview pixel. Exact picks the exact color of the highlighted pixel in the zoom preview.");
+                    description: "Native uses Affinity's built-in color picking which may differ from the zoom preview pixel. Exact picks the exact color of the highlighted pixel in the zoom preview.")
+                .AddSection("Crash Fixes")
+                .AddBool(SettingForceSyncFontEnum, "Force synchronous font enumeration",
+                    defaultValue: true,
+                    restartRequired: true,
+                    description: "Disable parallel font enumeration to significantly reduce frequency of startup crashes. May increase application startup time on systems with lots of fonts.");
         }
 
         public override void OnPatch(Harmony harmony, IPluginContext context)
