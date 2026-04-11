@@ -1,6 +1,7 @@
 using System;
 using System.Runtime.InteropServices;
 using AffinityPluginLoader.Core;
+using AffinityPluginLoader.Native;
 
 namespace WineFix.Patches
 {
@@ -21,15 +22,6 @@ namespace WineFix.Patches
     /// </summary>
     public static class CollinearJoinPatch
     {
-        [DllImport("kernel32.dll", CharSet = CharSet.Unicode)]
-        private static extern IntPtr GetModuleHandle(string lpModuleName);
-
-        [DllImport("kernel32.dll", SetLastError = true)]
-        private static extern bool VirtualProtect(IntPtr lpAddress, UIntPtr dwSize,
-            uint flNewProtect, out uint lpflOldProtect);
-
-        private const uint PAGE_EXECUTE_READWRITE = 0x40;
-
         /// <summary>
         /// Scans d2d1.dll's .text section for a `movss xmm0, [rip+disp]` instruction
         /// that loads 25.0f (0x41c80000), and replaces it with `xorps xmm0, xmm0` (0.0f).
@@ -38,55 +30,27 @@ namespace WineFix.Patches
         {
             try
             {
-                IntPtr d2d1Base = GetModuleHandle("d2d1");
-                if (d2d1Base == IntPtr.Zero)
-                {
-                    Logger.Warning("Collinear join fix: d2d1.dll not loaded, skipping");
-                    return;
-                }
-
-                // Parse PE headers to find .text section bounds
-                byte* basePtr = (byte*)d2d1Base;
-                int peOffset = *(int*)(basePtr + 0x3C);
-                short numSections = *(short*)(basePtr + peOffset + 6);
-                short optHeaderSize = *(short*)(basePtr + peOffset + 20);
-                byte* sectionTable = basePtr + peOffset + 24 + optHeaderSize;
-
-                byte* textStart = null;
-                int textSize = 0;
-
-                for (int i = 0; i < numSections; i++)
-                {
-                    byte* sec = sectionTable + i * 40;
-                    if (sec[0] == '.' && sec[1] == 't' && sec[2] == 'e' && sec[3] == 'x' && sec[4] == 't')
-                    {
-                        textSize = *(int*)(sec + 8);
-                        int textRva = *(int*)(sec + 12);
-                        textStart = basePtr + textRva;
-                        break;
-                    }
-                }
-
-                if (textStart == null)
+                if (!NativePatch.TryGetSection("d2d1", ".text", out IntPtr start, out int size))
                 {
                     Logger.Warning("Collinear join fix: .text section not found in d2d1.dll");
                     return;
                 }
 
-                // Scan for: f3 0f 10 05 [4-byte disp] where target dword == 0x41c80000 (25.0f)
+                // Scan for: f3 0f 10 05 [4-byte disp] where the RIP-relative target == 25.0f
                 const uint FLOAT_25 = 0x41c80000;
+                byte* ptr = (byte*)start;
                 byte* patchSite = null;
 
-                for (int i = 0; i < textSize - 8; i++)
+                for (int i = 0; i < size - 8; i++)
                 {
-                    if (textStart[i] == 0xf3 && textStart[i + 1] == 0x0f &&
-                        textStart[i + 2] == 0x10 && textStart[i + 3] == 0x05)
+                    if (ptr[i] == 0xf3 && ptr[i + 1] == 0x0f &&
+                        ptr[i + 2] == 0x10 && ptr[i + 3] == 0x05)
                     {
-                        int disp = *(int*)(textStart + i + 4);
-                        byte* target = textStart + i + 8 + disp;
+                        int disp = *(int*)(ptr + i + 4);
+                        byte* target = ptr + i + 8 + disp;
                         if (*(uint*)target == FLOAT_25)
                         {
-                            patchSite = textStart + i;
+                            patchSite = ptr + i;
                             break;
                         }
                     }
@@ -99,24 +63,27 @@ namespace WineFix.Patches
                     return;
                 }
 
-                // Replace `movss xmm0, [25.0f]` (8 bytes) with `xorps xmm0, xmm0` (3 bytes) + 5 NOPs
-                VirtualProtect((IntPtr)patchSite, (UIntPtr)8, PAGE_EXECUTE_READWRITE, out uint oldProtect);
-                patchSite[0] = 0x0f; // xorps xmm0, xmm0
-                patchSite[1] = 0x57;
-                patchSite[2] = 0xc0;
-                patchSite[3] = 0x90; // nop
-                patchSite[4] = 0x90;
-                patchSite[5] = 0x90;
-                patchSite[6] = 0x90;
-                patchSite[7] = 0x90;
+                // Replace `movss xmm0, [25.0f]` (8 bytes) with `xorps xmm0, xmm0` (3) + NOPs (5)
+                byte[] replacement = { 0x0f, 0x57, 0xc0, 0x90, 0x90, 0x90, 0x90, 0x90 };
+
+                VirtualProtect((IntPtr)patchSite, (UIntPtr)8, 0x40, out uint oldProtect);
+                Marshal.Copy(replacement, 0, (IntPtr)patchSite, 8);
                 VirtualProtect((IntPtr)patchSite, (UIntPtr)8, oldProtect, out _);
 
-                Logger.Info($"Collinear join fix applied at d2d1+0x{(patchSite - basePtr):X}");
+                IntPtr d2d1Base = GetModuleHandle("d2d1");
+                Logger.Info($"Collinear join fix applied at d2d1+0x{(patchSite - (byte*)d2d1Base):X}");
             }
             catch (Exception ex)
             {
                 Logger.Error("Failed to apply collinear join fix", ex);
             }
         }
+
+        [DllImport("kernel32.dll", CharSet = CharSet.Unicode)]
+        private static extern IntPtr GetModuleHandle(string lpModuleName);
+
+        [DllImport("kernel32.dll", SetLastError = true)]
+        private static extern bool VirtualProtect(IntPtr lpAddress, UIntPtr dwSize,
+            uint flNewProtect, out uint lpflOldProtect);
     }
 }
