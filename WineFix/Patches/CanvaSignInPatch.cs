@@ -1,6 +1,5 @@
 using System;
 using System.Globalization;
-using System.IO;
 using System.Linq;
 using System.Reflection;
 using System.Windows;
@@ -22,6 +21,7 @@ namespace WineFix.Patches
     {
         private static FieldInfo _authHookField;
         private static object _cloudServicesService;
+        private static Border _overlayPanel;
 
         public static void ApplyPatches(Harmony harmony)
         {
@@ -116,7 +116,6 @@ namespace WineFix.Patches
         {
             try
             {
-                // Check if current state is SigningIn
                 var model = ((FrameworkElement)window).DataContext;
                 var stateProp = model.GetType().GetProperty("State");
                 if (stateProp == null) return;
@@ -124,7 +123,6 @@ namespace WineFix.Patches
                 var state = stateProp.GetValue(model);
                 if (state.ToString() == "SigningIn")
                 {
-                    // Defer to allow the template to render
                     window.Dispatcher.BeginInvoke(System.Windows.Threading.DispatcherPriority.Loaded,
                         new Action(() => InjectPasteUIImpl(window)));
                 }
@@ -139,32 +137,25 @@ namespace WineFix.Patches
             }
         }
 
-        private static Border _overlayPanel;
-
         private static void InjectPasteUIImpl(Window window)
         {
             try
             {
-                // Find the root decorator/grid of the window to overlay on top of everything
-                var rootGrid = FindChild<Grid>(window);
-                if (rootGrid == null) return;
-
-                // If we already injected the overlay, just make sure it's visible
                 if (_overlayPanel != null)
                 {
                     _overlayPanel.Visibility = Visibility.Visible;
                     return;
                 }
 
-                // Wrap existing window content in a new Grid so we can overlay on top
                 var existingContent = window.Content as UIElement;
                 if (existingContent == null) return;
 
+                // Wrap existing window content in a new Grid so we can overlay on top
                 var wrapperGrid = new Grid();
                 window.Content = wrapperGrid;
                 wrapperGrid.Children.Add(existingContent);
 
-                // Build an overlay panel pinned to the right half of the window
+                // Build overlay content
                 var panel = new StackPanel
                 {
                     VerticalAlignment = VerticalAlignment.Center,
@@ -191,7 +182,6 @@ namespace WineFix.Patches
                     Margin = new Thickness(0, 0, 0, 10)
                 };
 
-                // Embedded screenshot
                 var screenshot = LoadEmbeddedImage("WineFix.Resources.signin.png");
                 Image screenshotImage = null;
                 if (screenshot != null)
@@ -213,7 +203,6 @@ namespace WineFix.Patches
                     HorizontalAlignment = HorizontalAlignment.Stretch
                 };
 
-                // Placeholder text overlay
                 var placeholder = new TextBlock
                 {
                     Text = "https://page.service.serif.com/canva-auth-redirect/...",
@@ -259,7 +248,7 @@ namespace WineFix.Patches
                 panel.Children.Add(button);
                 panel.Children.Add(errorText);
 
-                // Overlay container: right-aligned, 50% width, full height, white background
+                // Overlay: right-aligned, 50% width, full height, white background
                 _overlayPanel = new Border
                 {
                     Background = new SolidColorBrush(Color.FromArgb(0xF0, 0xFF, 0xFF, 0xFF)),
@@ -267,16 +256,13 @@ namespace WineFix.Patches
                     VerticalAlignment = VerticalAlignment.Stretch,
                     Child = panel
                 };
-
-                // Bind width to 50% of the window
                 _overlayPanel.SetBinding(FrameworkElement.WidthProperty,
-                    new System.Windows.Data.Binding("ActualWidth")
+                    new Binding("ActualWidth")
                     {
                         Source = window,
                         Converter = new HalfWidthConverter()
                     });
 
-                // Add on top of everything
                 wrapperGrid.Children.Add(_overlayPanel);
 
                 // Nudge the "Back" button left so it's not covered by the overlay
@@ -284,7 +270,7 @@ namespace WineFix.Patches
                     c => c.ContentTemplateSelector != null);
                 if (contentControl != null)
                 {
-                    var backButton = FindDescendant<Button>(contentControl, b =>
+                    var backButton = FindChild<Button>(contentControl, b =>
                         Grid.GetRow(b) == 4 && Grid.GetColumnSpan(b) == 3
                         && b.HorizontalAlignment == HorizontalAlignment.Center);
                     if (backButton != null)
@@ -324,7 +310,6 @@ namespace WineFix.Patches
                     return;
                 }
 
-                // Fire AuthHookReceived on CloudServicesService
                 if (_cloudServicesService == null || _authHookField == null)
                 {
                     ShowError(errorText, "Internal error: cloud services not available.");
@@ -351,22 +336,19 @@ namespace WineFix.Patches
         /// <summary>
         /// Extracts the affinity:// URI from either:
         /// - A direct affinity://canva/authorize?... URL
-        /// - A redirect page URL like https://page.service.serif.com/canva-auth-redirect/?url=affinity%3A%2F%2F...
+        /// - A redirect page URL: https://page.service.serif.com/canva-auth-redirect/?url=affinity%3A%2F%2F...
         /// </summary>
         private static Uri ExtractAffinityUri(string input)
         {
-            // Direct affinity:// URL
             if (input.StartsWith("affinity://", StringComparison.OrdinalIgnoreCase))
                 return new Uri(input);
 
-            // Extract from redirect page URL's "url" query parameter
             try
             {
                 var uri = new Uri(input);
                 var query = uri.Query;
                 if (string.IsNullOrEmpty(query)) return null;
 
-                // Parse query string manually (no System.Web)
                 var decoded = ParseQueryParam(query, "url");
                 if (decoded != null && decoded.StartsWith("affinity://", StringComparison.OrdinalIgnoreCase))
                     return new Uri(decoded);
@@ -378,7 +360,6 @@ namespace WineFix.Patches
 
         private static string ParseQueryParam(string query, string name)
         {
-            // Remove leading '?'
             if (query.StartsWith("?")) query = query.Substring(1);
 
             foreach (var part in query.Split('&'))
@@ -435,25 +416,6 @@ namespace WineFix.Patches
                 if (result != null) return result;
             }
             return null;
-        }
-
-        private static T FindAncestor<T>(DependencyObject child, Func<T, bool> predicate)
-            where T : DependencyObject
-        {
-            var parent = VisualTreeHelper.GetParent(child);
-            while (parent != null)
-            {
-                if (parent is T t && predicate(t))
-                    return t;
-                parent = VisualTreeHelper.GetParent(parent);
-            }
-            return null;
-        }
-
-        private static T FindDescendant<T>(DependencyObject parent, Func<T, bool> predicate)
-            where T : DependencyObject
-        {
-            return FindChild(parent, predicate);
         }
     }
 
