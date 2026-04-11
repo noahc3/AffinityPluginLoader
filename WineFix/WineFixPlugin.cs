@@ -48,6 +48,8 @@ namespace WineFix
 
         public override void OnPatch(Harmony harmony, IPluginContext context)
         {
+            Patches.BezierRenderingPatch.Apply();
+
             context.Patch("MainWindowLoaded fix",
                 h => Patches.MainWindowLoadedPatch.ApplyPatches(h));
 

@@ -47,6 +47,7 @@ The bundled `d2d1.dll` source (under `WineFix/lib/d2d1/`) is licensed under **LG
 Big thanks to the following projects:
 
 - [AffinityOnLinux](https://github.com/seapear/AffinityOnLinux)
+- [Arecsu/wine-affinity](https://github.com/Arecsu/wine-affinity) — collinear outline join fix
 - [Harmony](https://github.com/pardeike/Harmony)
 - [ElementalWarrior wine](https://gitlab.winehq.org/ElementalWarrior/wine)
 - [Upstream wine](https://gitlab.winehq.org/wine/wine)

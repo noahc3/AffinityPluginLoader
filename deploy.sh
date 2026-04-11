@@ -43,7 +43,7 @@ if [ ! -d "$AFFINITY_PATH" ]; then
 fi
 
 if [ "$SKIP_BUILD" = false ]; then
-    bash "$ROOTDIR/package-release.sh" --docker
+    bash "$ROOTDIR/package-release.sh" --docker --debug
 fi
 
 ARCHIVE="$ROOTDIR/releases/affinitypluginloader-plus-winefix.tar.xz"
