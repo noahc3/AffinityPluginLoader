@@ -37,6 +37,7 @@ nav:
     - Configuration: guide/configuration.md
   - Developer Guide:
     - Creating a Plugin: dev/creating-a-plugin.md
+    - Native Code APIs: dev/native-apis.md
   - WineFix:
     - Overview: winefix/index.md
     - Installation: winefix/installation.md

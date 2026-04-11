@@ -14,11 +14,12 @@ For detailed instructions, see the [WineFix Installation Guide](https://apl.ncur
 
 ## Included Patches
 
-- Preferences fail to save on application exit
-- Vector path preview lines drawn incorrectly
-- Color picker zoom preview displays a black image on Wayland
-- Intermittent startup crash from parallel font enumeration
-- Canva sign-in dialog patched out (temporary; pending protocol handler fix)
+- **Bezier rendering fix** — Cubic Bézier curves render incorrectly under Wine. Fixed by hooking the `ID2D1GeometrySink` COM vtable to subdivide cubic Béziers into quadratics at runtime using adaptive De Casteljau subdivision. Works across all Wine versions.
+- **Collinear join fix** — Spike artifacts appear at smooth curve joins after Bézier subdivision. Fixed by patching d2d1.dll in memory to zero the erroneous 25-unit vertex offset for collinear outline joins.
+- **Preferences save fix** — Preferences fail to save on application exit. Fixed via Harmony transpiler replacing `HasPreviousPackageInstalled()` with `false`.
+- **Color picker Wayland fix** — Color picker zoom preview displays a black image on Wayland. Fixed by patching the magnifier capture to use Wine's window capture instead of screen capture.
+- **Font enumeration fix** — Intermittent startup crash from parallel font enumeration. Fixed by forcing synchronous font loading.
+- **Canva sign-in bypass** — Canva sign-in dialog patched out (temporary; pending protocol handler fix).
 
 ## Configuration
 
@@ -35,11 +36,9 @@ We are open to resolving any Wine-specific bugs. Feel free to [open an issue](ht
 
 WineFix is licensed under **GPLv2**. See the [LICENSE](LICENSE) file.
 
-The bundled `d2d1.dll` source (under `WineFix/lib/d2d1/`) is licensed under **LGPLv2.1** per upstream Wine licensing. Changes have been applied to implement a cubic bezier subdivision algorithm and to allow building d2d1.dll standalone.
-
 ### License Exemption
 
-[Canva](https://github.com/canva) and its subsidiaries are exempt from GPLv2 licensing and may (at its option) instead license any source code authored for the WineFix project under the Zero-Clause BSD license. This exemption **does not apply** to the d2d1.dll source code under `WineFix/lib/d2d1/`.
+[Canva](https://github.com/canva) and its subsidiaries are exempt from GPLv2 licensing and may (at its option) instead license any source code authored for the WineFix project under the Zero-Clause BSD license.
 
 
 # Credits

@@ -134,6 +134,10 @@ Harmony supports several patch types. The most common ones are:
 
 See the [Harmony patching documentation](https://harmony.pardeike.net/articles/patching.html) for the full list of patch types and detailed usage.
 
+### Native Code Patching
+
+For patching native (unmanaged) DLLs — COM interface hooking, in-memory byte patching — see the [Native Code APIs](native-apis.md) documentation.
+
 ## Settings API
 
 Override `DefineSettings()` to declare configuration options for your plugin. APL auto-generates a preferences page in Affinity's preferences dialog and persists values to a TOML file.
