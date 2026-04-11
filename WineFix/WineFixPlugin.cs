@@ -70,6 +70,9 @@ namespace WineFix
             {
                 Logger.Info("Skipping ColorPicker Wayland fix (setting: " + magnifierFix + ")");
             }
+
+            context.Patch("Canva sign-in paste URL fix",
+                h => Patches.CanvaSignInPatch.ApplyPatches(h));
         }
     }
 }

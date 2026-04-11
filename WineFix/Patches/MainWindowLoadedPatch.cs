@@ -52,12 +52,10 @@ namespace WineFix.Patches
         }
 
         // Transpiler that replaces the call to HasPreviousPackageInstalled() with loading 'false'
-        // and also removes the call to base.OnMainWindowLoaded()
         public static IEnumerable<CodeInstruction> OnMainWindowLoaded_Transpiler(IEnumerable<CodeInstruction> instructions)
         {
             var codes = new List<CodeInstruction>(instructions);
             bool patchedPackageCheck = false;
-            bool patchedBaseCall = false;
 
             for (int i = 0; i < codes.Count; i++)
             {
@@ -99,64 +97,11 @@ namespace WineFix.Patches
                     patchedPackageCheck = true;
                     continue;
                 }
-                
-                // Look for: call instance void Serif.Interop.Persona.Application::OnMainWindowLoaded(...)
-                // (Index 22 in the IL - base class is Serif.Interop.Persona.Application, not System.Windows.Application!)
-                if (!patchedBaseCall &&
-                    instruction.opcode == OpCodes.Call &&
-                    instruction.operand is MethodInfo baseMethod &&
-                    baseMethod.Name == "OnMainWindowLoaded" &&
-                    baseMethod.DeclaringType != null &&
-                    (baseMethod.DeclaringType.FullName == "Serif.Interop.Persona.Application" ||
-                     baseMethod.DeclaringType.FullName == "System.Windows.Application"))
-                {
-                    Logger.Debug($"Found base.OnMainWindowLoaded call at instruction {i}");
-
-                    // The IL sequence is (indices 20-22):
-                    //   ldarg.0          ; load 'this'
-                    //   ldarg.1          ; load 'mainWindow'
-                    //   call base.OnMainWindowLoaded
-                    // Replace all three with NOPs, preserving labels
-                    if (i >= 2 &&
-                        codes[i - 2].opcode == OpCodes.Ldarg_0 &&
-                        codes[i - 1].opcode == OpCodes.Ldarg_1)
-                    {
-                        // Create NOPs but preserve labels
-                        var nop1 = new CodeInstruction(OpCodes.Nop);
-                        nop1.labels.AddRange(codes[i - 2].labels);
-                        codes[i - 2] = nop1;
-
-                        var nop2 = new CodeInstruction(OpCodes.Nop);
-                        nop2.labels.AddRange(codes[i - 1].labels);
-                        codes[i - 1] = nop2;
-
-                        var nop3 = new CodeInstruction(OpCodes.Nop);
-                        nop3.labels.AddRange(codes[i].labels);
-                        codes[i] = nop3;
-
-                        Logger.Debug($"Removed base.OnMainWindowLoaded call (indices {i-2} to {i})");
-                        patchedBaseCall = true;
-                    }
-                    else
-                    {
-                        Logger.Warning($"WARNING: Found base.OnMainWindowLoaded but preceding instructions don't match expected pattern");
-                        var nop = new CodeInstruction(OpCodes.Nop);
-                        nop.labels.AddRange(codes[i].labels);
-                        codes[i] = nop;
-                        patchedBaseCall = true;
-                    }
-                    continue;
-                }
             }
 
             if (!patchedPackageCheck)
             {
                 Logger.Warning($"WARNING: Could not find HasPreviousPackageInstalled call to patch");
-            }
-
-            if (!patchedBaseCall)
-            {
-                Logger.Warning($"WARNING: Could not find base.OnMainWindowLoaded call to patch");
             }
 
             return codes.AsEnumerable();
