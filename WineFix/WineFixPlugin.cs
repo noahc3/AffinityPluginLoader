@@ -16,11 +16,16 @@ namespace WineFix
         public const string ColorPickerMagnifierFixKey = "color_picker_magnifier_fix";
         public const string ColorPickerModeKey = "color_picker_sampling_mode";
         public const string SettingForceSyncFontEnum = "force_sync_font_enum";
+        public const string SettingCanvaSignInHelper = "canva_sign_in_helper";
 
         public override PluginSettingsDefinition DefineSettings()
         {
             return new PluginSettingsDefinition(PluginId)
                 .AddSection("Patches")
+                .AddBool(SettingCanvaSignInHelper, "Canva sign-in helper",
+                    defaultValue: true,
+                    restartRequired: true,
+                    description: "Patch the Canva sign-in dialog to include a helper textbox input and instructions to complete Canva sign-in without needing a protocol URL handler.")
                 .AddEnum(ColorPickerMagnifierFixKey, "Color picker: Wayland zoom magnifier fix",
                     new List<EnumOption>
                     {
@@ -71,8 +76,15 @@ namespace WineFix
                 Logger.Info("Skipping ColorPicker Wayland fix (setting: " + magnifierFix + ")");
             }
 
-            context.Patch("Canva sign-in paste URL fix",
-                h => Patches.CanvaSignInPatch.ApplyPatches(h));
+            if (context.Settings.GetEffectiveValue<bool>(SettingCanvaSignInHelper))
+            {
+                context.Patch("Canva sign-in paste URL fix",
+                    h => Patches.CanvaSignInPatch.ApplyPatches(h));
+            }
+            else
+            {
+                Logger.Info("Skipping Canva sign-in helper (disabled in settings)");
+            }
         }
     }
 }
