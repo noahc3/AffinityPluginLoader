@@ -4,10 +4,12 @@ on:
   push:
     branches:
       - main
+      - dev
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review]
     branches:
       - main
+      - dev
   workflow_dispatch:
 
 # Cancel in-progress runs when a new workflow with the same group name is triggered
