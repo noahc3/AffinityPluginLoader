@@ -189,9 +189,6 @@ namespace WineFix.Patches
                 if (pathGeometry != IntPtr.Zero) Marshal.Release(pathGeometry);
                 if (factory != IntPtr.Zero) Marshal.Release(factory);
             }
-
-            // Patch the collinear outline join bug (separate patch)
-            CollinearJoinPatch.Apply();
         }
 
         // ── Current-point tracking hooks ──
