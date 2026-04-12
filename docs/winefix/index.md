@@ -1,23 +1,37 @@
 # WineFix
 
-WineFix is an APL plugin that patches Wine-specific bugs in Affinity using runtime code patches. It applies [Harmony](https://github.com/pardeike/Harmony) IL transpilers and prefixes to fix issues at the .NET level, and ships a patched `d2d1.dll` to fix native rendering bugs.
+WineFix is an APL plugin that patches Wine-specific bugs in Affinity using runtime code patches. It applies [Harmony](https://github.com/pardeike/Harmony) IL transpilers for .NET-level fixes, and uses APL's [native code APIs](../dev/native-apis.md) (COM vtable hooking and in-memory patching) for native rendering fixes.
 
 ## Fixes
 
-- **Canva sign-in under Wine** — The `affinity://` protocol handler doesn't work under Wine without extra configuration on the host, so the browser auth redirect never reaches Affinity. WineFix adds a paste-URL panel to the sign-in dialog: after signing in via the browser, users copy the redirect URL from the "Launching Affinity" page and paste it into the dialog to complete authentication.
-- **Preferences fail to save on exit** — Transpiler replaces `HasPreviousPackageInstalled()` with `false`, which otherwise blocks the preferences save path under Wine.
-- **Vector path preview lines drawn incorrectly** — Fixed via a patched `d2d1.dll` built from Wine 10.18 source with a cubic bezier subdivision algorithm that approximates cubic beziers using multiple quadratic beziers.
-- **Color picker zoom preview shows a black image on Wayland** — Replaces `CopyFromScreen` (which returns black under Wayland) with a `BitBlt` from the canvas window. Auto-detected by default; [configurable](configuration.md).
-- **Intermittent startup crash from parallel font enumeration** — Forces synchronous font loading to avoid an access violation in `libkernel.dll` during startup. Enabled by default; [configurable](configuration.md).
+## Canva Sign-In Helper
 
-## Canva Sign-In
-
-Under Wine, the `affinity://` protocol handler used by Canva's OAuth flow doesn't work — after signing in via the browser, the redirect back to Affinity never arrives. WineFix adds a panel to the right side of the sign-in dialog with instructions and a textbox. After signing in, the browser shows a "Launching Affinity" page. Copy the full URL from the browser's address bar and paste it into the textbox to complete sign-in.
+Under Wine, the `affinity://` protocol handler used by Canva's OAuth flow doesn't work without extra configuration on the host, meaning after signing in via the browser the redirect back to Affinity never arrives. WineFix adds a panel to the right side of the sign-in dialog with instructions and a URL inpiut. After signing in, the browser shows a "Launching Affinity" page. Copy the full URL from the browser's address bar and paste it into the textbox to complete sign-in.
 
 Both URL formats are accepted:
 
 - The full redirect page URL: `https://page.service.serif.com/canva-auth-redirect/?url=affinity%3A%2F%2F...`
 - The raw protocol URL: `affinity://canva/authorize?code=...&exchangeId=...`
+
+### Bezier rendering fix
+
+Wine's Direct2D implementation approximates every cubic Bézier with a single quadratic, which produces visible distortion on curves with high curvature or inflection points. WineFix hooks the `ID2D1GeometrySink` COM vtable at runtime to intercept cubic Bézier calls (`AddBezier`, `AddBeziers`) and replaces them with adaptive cubic-to-quadratic subdivision using De Casteljau's algorithm. The resulting quadratic segments are emitted via `AddQuadraticBeziers`, which Wine renders correctly.
+
+This approach works across all Wine versions (7.9 through 11.6+ tested) because COM vtable layout is defined by the interface ABI and never changes between implementations.
+
+### Collinear outline join fix
+
+When two adjacent outline segments are collinear, Wine's `d2d_geometry_outline_add_join` unconditionally places join vertices 25 units away from the join point. This is correct for hairpin reversals but produces visible spike artifacts on smooth curve continuations from Bézier subdivision. WineFix patches d2d1.dll in memory to zero this offset, making collinear joins flat.
+
+The patch is applied by scanning d2d1.dll's `.text` section for the `movss xmm0, [25.0f]` instruction and replacing it with `xorps xmm0, xmm0` (0.0f). Based on a [Wine patch by Arecsu](https://github.com/Arecsu/wine-affinity).
+
+### Preferences save fix
+
+Preferences fail to save on application exit under Wine. A Harmony transpiler replaces the call to `HasPreviousPackageInstalled()` with `false`, which otherwise throws an exception that blocks the preferences save path.
+
+### Color picker Wayland fix
+
+The color picker zoom preview displays a black image on Wayland because `CopyFromScreen` returns black. WineFix replaces it with a `BitBlt` from the canvas window. Auto-detected by default; [configurable](configuration.md).
 
 ## Color Picker Sampling Modes
 
@@ -33,17 +47,18 @@ Use Native for color-accurate work (especially CMYK or wide-gamut documents). Us
 | ![Native mode](img/native.png) | ![Exact mode](img/exact.png) |
 | The highlighted pixel reads `R:255 G:255 B:255` — the sampled color differs from what's visible in the zoom preview. | The highlighted pixel reads `R:255 G:148 B:148` — the sampled color matches the actual pixel shown in the zoom preview. |
 
+### Font enumeration fix
+
+Intermittent startup crash from parallel font enumeration in `libkernel.dll`. Forces synchronous font loading. Enabled by default; [configurable](configuration.md).
+
 ## Known Open Bugs
 
 These are under investigation and not yet patched:
 
-- Accepting crash reporting causes a permanent crash until preferences are cleared
 - Embedded SVG document editor crashes after being open for some time
 
 We are open to resolving any Wine-specific bugs. Feel free to [open an issue](https://github.com/noahc3/AffinityPluginLoader/issues) requesting a patch — just keep in mind these bugs take time to research and develop patches for, especially when native code is involved.
 
 ## Licensing
 
-WineFix is licensed under **GPLv2**. The bundled `d2d1.dll` source (under `WineFix/lib/d2d1/`) is licensed under **LGPLv2.1** per upstream Wine licensing.
-
-This is a different license from the rest of APL (MIT). See the [LICENSE](https://github.com/noahc3/AffinityPluginLoader/blob/main/WineFix/LICENSE) file for details.
+WineFix is licensed under **GPLv2**. See the [LICENSE](https://github.com/noahc3/AffinityPluginLoader/blob/main/WineFix/LICENSE) file for details.
