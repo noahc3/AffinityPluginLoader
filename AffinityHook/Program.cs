@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Diagnostics;
 using System.IO;
+using System.Linq;
 using System.Reflection;
 using System.Runtime.InteropServices;
 using System.Text;
@@ -90,6 +91,8 @@ namespace AffinityPluginLoader
                     Console.WriteLine();
                 }
                 
+                var forwardedArgs = string.Join(" ", args.Select(a => a.Contains(" ") ? "\"" + a + "\"" : a));
+
                 Console.WriteLine($"Starting Affinity from: {affinityExe}");
                 Console.WriteLine($"Mode: {(detachMode ? "Detached" : "Attached")}");
                 
@@ -97,7 +100,7 @@ namespace AffinityPluginLoader
                 var startInfo = new ProcessStartInfo
                 {
                     FileName = affinityExe,
-                    Arguments = string.Join(" ", args),
+                    Arguments = forwardedArgs,
                     WorkingDirectory = affinityDir,
                     UseShellExecute = false,
                     CreateNoWindow = false
