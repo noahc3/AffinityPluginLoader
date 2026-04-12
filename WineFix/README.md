@@ -20,6 +20,7 @@ For detailed instructions, see the [WineFix Installation Guide](https://apl.ncur
 - **Color picker Wayland fix** — Color picker zoom preview displays a black image on Wayland. Fixed by patching the magnifier capture to use Wine's window capture instead of screen capture.
 - **Font enumeration fix** — Intermittent startup crash from parallel font enumeration. Fixed by forcing synchronous font loading.
 - **Canva sign-in helper** — Canva sign-in helper to allow copy/paste of the authorization URL to complete sign-in, no protocol handler required.
+- **Command-line file opening fix** — Opening files from the desktop or command line crashes or silently fails due to a missing WinRT type. Fixed by bypassing `ProcessCommandLineArguments` and opening files directly via `IDocumentViewService`.
 
 ## Configuration
 
