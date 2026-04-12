@@ -4,6 +4,15 @@ WineFix is an APL plugin that patches Wine-specific bugs in Affinity using runti
 
 ## Fixes
 
+## Canva Sign-In Helper
+
+Under Wine, the `affinity://` protocol handler used by Canva's OAuth flow doesn't work without extra configuration on the host, meaning after signing in via the browser the redirect back to Affinity never arrives. WineFix adds a panel to the right side of the sign-in dialog with instructions and a URL inpiut. After signing in, the browser shows a "Launching Affinity" page. Copy the full URL from the browser's address bar and paste it into the textbox to complete sign-in.
+
+Both URL formats are accepted:
+
+- The full redirect page URL: `https://page.service.serif.com/canva-auth-redirect/?url=affinity%3A%2F%2F...`
+- The raw protocol URL: `affinity://canva/authorize?code=...&exchangeId=...`
+
 ### Bezier rendering fix
 
 Wine's Direct2D implementation approximates every cubic Bézier with a single quadratic, which produces visible distortion on curves with high curvature or inflection points. WineFix hooks the `ID2D1GeometrySink` COM vtable at runtime to intercept cubic Bézier calls (`AddBezier`, `AddBeziers`) and replaces them with adaptive cubic-to-quadratic subdivision using De Casteljau's algorithm. The resulting quadratic segments are emitted via `AddQuadraticBeziers`, which Wine renders correctly.
@@ -24,15 +33,6 @@ Preferences fail to save on application exit under Wine. A Harmony transpiler re
 
 The color picker zoom preview displays a black image on Wayland because `CopyFromScreen` returns black. WineFix replaces it with a `BitBlt` from the canvas window. Auto-detected by default; [configurable](configuration.md).
 
-### Font enumeration fix
-
-Intermittent startup crash from parallel font enumeration in `libkernel.dll`. Forces synchronous font loading. Enabled by default; [configurable](configuration.md).
-
-### Canva sign-in bypass
-
-!!! warning
-    WineFix currently patches out the Canva sign-in dialog prompt. This is temporary and will be restored once there is a consistent fix for the sign-in browser redirect and Affinity protocol handler.
-
 ## Color Picker Sampling Modes
 
 The color picker has two sampling modes, configurable in [settings](configuration.md):
@@ -47,11 +47,14 @@ Use Native for color-accurate work (especially CMYK or wide-gamut documents). Us
 | ![Native mode](img/native.png) | ![Exact mode](img/exact.png) |
 | The highlighted pixel reads `R:255 G:255 B:255` — the sampled color differs from what's visible in the zoom preview. | The highlighted pixel reads `R:255 G:148 B:148` — the sampled color matches the actual pixel shown in the zoom preview. |
 
+### Font enumeration fix
+
+Intermittent startup crash from parallel font enumeration in `libkernel.dll`. Forces synchronous font loading. Enabled by default; [configurable](configuration.md).
+
 ## Known Open Bugs
 
 These are under investigation and not yet patched:
 
-- Accepting crash reporting causes a permanent crash until preferences are cleared
 - Embedded SVG document editor crashes after being open for some time
 
 We are open to resolving any Wine-specific bugs. Feel free to [open an issue](https://github.com/noahc3/AffinityPluginLoader/issues) requesting a patch — just keep in mind these bugs take time to research and develop patches for, especially when native code is involved.

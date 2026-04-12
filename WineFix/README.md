@@ -19,7 +19,7 @@ For detailed instructions, see the [WineFix Installation Guide](https://apl.ncur
 - **Preferences save fix** — Preferences fail to save on application exit. Fixed via Harmony transpiler replacing `HasPreviousPackageInstalled()` with `false`.
 - **Color picker Wayland fix** — Color picker zoom preview displays a black image on Wayland. Fixed by patching the magnifier capture to use Wine's window capture instead of screen capture.
 - **Font enumeration fix** — Intermittent startup crash from parallel font enumeration. Fixed by forcing synchronous font loading.
-- **Canva sign-in bypass** — Canva sign-in dialog patched out (temporary; pending protocol handler fix).
+- **Canva sign-in helper** — Canva sign-in helper to allow copy/paste of the authorization URL to complete sign-in, no protocol handler required.
 
 ## Configuration
 
@@ -27,7 +27,6 @@ WineFix is configurable from Affinity's preferences dialog, TOML files, or envir
 
 ## Known Open Bugs
 
-- Accepting crash reporting causes permanent crash until prefs are cleared
 - Embedded SVG document editor crashes after being open for some time
 
 We are open to resolving any Wine-specific bugs. Feel free to [open an issue](https://github.com/noahc3/AffinityPluginLoader/issues) requesting a patch.

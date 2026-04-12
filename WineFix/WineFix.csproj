@@ -29,6 +29,10 @@
     <Reference Include="WindowsBase" />
     <Reference Include="PresentationCore" />
     <Reference Include="PresentationFramework" />
+    <Reference Include="System.Xaml" />
+  </ItemGroup>
+  <ItemGroup>
+    <EmbeddedResource Include="Resources\signin.png" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\AffinityPluginLoader\AffinityPluginLoader.csproj">

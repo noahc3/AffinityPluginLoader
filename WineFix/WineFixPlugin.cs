@@ -18,11 +18,16 @@ namespace WineFix
         public const string BezierRenderingFixKey = "bezier_rendering_fix";
         public const string CollinearJoinFixKey = "collinear_join_fix";
         public const string SettingForceSyncFontEnum = "force_sync_font_enum";
+        public const string SettingCanvaSignInHelper = "canva_sign_in_helper";
 
         public override PluginSettingsDefinition DefineSettings()
         {
             return new PluginSettingsDefinition(PluginId)
                 .AddSection("Patches")
+                .AddBool(SettingCanvaSignInHelper, "Canva sign-in helper",
+                    defaultValue: true,
+                    restartRequired: true,
+                    description: "Patch the Canva sign-in dialog to include a helper textbox input and instructions to complete Canva sign-in without needing a protocol URL handler.")
                 .AddBool(BezierRenderingFixKey, "Bezier curves: Fix tool preview path rendering",
                     defaultValue: true,
                     restartRequired: true,
@@ -91,6 +96,16 @@ namespace WineFix
             else
             {
                 Logger.Info("Skipping ColorPicker Wayland fix (setting: " + magnifierFix + ")");
+            }
+
+            if (context.Settings.GetEffectiveValue<bool>(SettingCanvaSignInHelper))
+            {
+                context.Patch("Canva sign-in paste URL fix",
+                    h => Patches.CanvaSignInPatch.ApplyPatches(h));
+            }
+            else
+            {
+                Logger.Info("Skipping Canva sign-in helper (disabled in settings)");
             }
         }
     }
