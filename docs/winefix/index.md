@@ -4,13 +4,20 @@ WineFix is an APL plugin that patches Wine-specific bugs in Affinity using runti
 
 ## Fixes
 
+- **Canva sign-in under Wine** — The `affinity://` protocol handler doesn't work under Wine without extra configuration on the host, so the browser auth redirect never reaches Affinity. WineFix adds a paste-URL panel to the sign-in dialog: after signing in via the browser, users copy the redirect URL from the "Launching Affinity" page and paste it into the dialog to complete authentication.
 - **Preferences fail to save on exit** — Transpiler replaces `HasPreviousPackageInstalled()` with `false`, which otherwise blocks the preferences save path under Wine.
 - **Vector path preview lines drawn incorrectly** — Fixed via a patched `d2d1.dll` built from Wine 10.18 source with a cubic bezier subdivision algorithm that approximates cubic beziers using multiple quadratic beziers.
 - **Color picker zoom preview shows a black image on Wayland** — Replaces `CopyFromScreen` (which returns black under Wayland) with a `BitBlt` from the canvas window. Auto-detected by default; [configurable](configuration.md).
 - **Intermittent startup crash from parallel font enumeration** — Forces synchronous font loading to avoid an access violation in `libkernel.dll` during startup. Enabled by default; [configurable](configuration.md).
 
-!!! warning
-    WineFix currently patches out the Canva sign-in dialog prompt. This is temporary and will be restored once there is a consistent fix for the sign-in browser redirect and Affinity protocol handler.
+## Canva Sign-In
+
+Under Wine, the `affinity://` protocol handler used by Canva's OAuth flow doesn't work — after signing in via the browser, the redirect back to Affinity never arrives. WineFix adds a panel to the right side of the sign-in dialog with instructions and a textbox. After signing in, the browser shows a "Launching Affinity" page. Copy the full URL from the browser's address bar and paste it into the textbox to complete sign-in.
+
+Both URL formats are accepted:
+
+- The full redirect page URL: `https://page.service.serif.com/canva-auth-redirect/?url=affinity%3A%2F%2F...`
+- The raw protocol URL: `affinity://canva/authorize?code=...&exchangeId=...`
 
 ## Color Picker Sampling Modes
 

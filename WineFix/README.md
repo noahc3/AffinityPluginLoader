@@ -18,7 +18,7 @@ For detailed instructions, see the [WineFix Installation Guide](https://apl.ncur
 - Vector path preview lines drawn incorrectly
 - Color picker zoom preview displays a black image on Wayland
 - Intermittent startup crash from parallel font enumeration
-- Canva sign-in dialog patched out (temporary; pending protocol handler fix)
+- Canva sign-in works via a paste-URL workaround for the Wine protocol handler
 
 ## Configuration
 
