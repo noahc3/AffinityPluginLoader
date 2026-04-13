@@ -25,6 +25,19 @@ When two adjacent outline segments are collinear, Wine's `d2d_geometry_outline_a
 
 The patch is applied by scanning d2d1.dll's `.text` section for the `movss xmm0, [25.0f]` instruction and replacing it with `xorps xmm0, xmm0` (0.0f). Based on a [Wine patch by Arecsu](https://github.com/Arecsu/wine-affinity).
 
+### Widen stub fix
+
+Wine's `ID2D1PathGeometry::Widen` returns `E_NOTIMPL`, which can cause Affinity to hang indefinitely when interacting with stroked path geometries (e.g. stroked SVG vectors). WineFix hooks the `Widen` vtable entry via `ComHook` to return `S_OK` with an empty closed geometry sink instead. Stroke rendering will be absent but the application remains usable. Based on a [Wine patch by Arecsu](https://github.com/Arecsu/wine-affinity).
+
+### Bezier split recursion and budget fix
+
+Wine's geometry processing code can enter unbounded recursion or unbounded splitting loops on complex or pathological vector paths (e.g. overlapping Bézier curves in embedded SVGs), causing Affinity to hang. WineFix applies two guards using APL's `NativeHook` API:
+
+- **Recursion guard:** Detours `d2d_geometry_intersect_bezier_bezier` to return early when Bézier parameter ranges shrink below 1e-6, preventing infinite recursion on overlapping or collinear Béziers.
+- **Split budget:** Detours `d2d_geometry_split_bezier` with a thread-local call counter that caps splits at 512 per geometry sink `Close` operation, preventing unbounded segment growth.
+
+Both functions are found by scanning d2d1.dll's `.text` section for their unique prologue byte patterns (verified across ElementalWarrior Wine 7.9, Wine Staging 11.5, and TKG Staging 11.6). Based on a [Wine patch by Arecsu](https://github.com/Arecsu/wine-affinity).
+
 ### Preferences save fix
 
 Preferences fail to save on application exit under Wine. A Harmony transpiler replaces the call to `HasPreviousPackageInstalled()` with `false`, which otherwise throws an exception that blocks the preferences save path.
@@ -55,7 +68,7 @@ Intermittent startup crash from parallel font enumeration in `libkernel.dll`. Fo
 
 These are under investigation and not yet patched:
 
-- Embedded SVG document editor crashes after being open for some time
+- Crash reporting acceptance causes permanent crash until prefs cleared
 
 We are open to resolving any Wine-specific bugs. Feel free to [open an issue](https://github.com/noahc3/AffinityPluginLoader/issues) requesting a patch — just keep in mind these bugs take time to research and develop patches for, especially when native code is involved.
 

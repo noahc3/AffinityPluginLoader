@@ -19,6 +19,8 @@ namespace WineFix
         public const string CollinearJoinFixKey = "collinear_join_fix";
         public const string SettingForceSyncFontEnum = "force_sync_font_enum";
         public const string SettingCanvaSignInHelper = "canva_sign_in_helper";
+        public const string SettingWidenStubFix = "widen_stub_fix";
+        public const string SettingBezierSplitGuard = "bezier_split_guard";
 
         public override PluginSettingsDefinition DefineSettings()
         {
@@ -36,6 +38,14 @@ namespace WineFix
                     defaultValue: true,
                     restartRequired: true,
                     description: "Apply patch to fix tangent line flicker artifacts between collinear bezier curve subdivisions.")
+                .AddBool(SettingWidenStubFix, "Stroked paths: Prevent freeze on Widen",
+                    defaultValue: true,
+                    restartRequired: true,
+                    description: "Stub the unimplemented ID2D1PathGeometry::Widen method to return an empty geometry instead of E_NOTIMPL. Prevents Affinity from hanging when clicking stroked SVG vectors. Stroke rendering will be absent but the app remains usable.")
+                .AddBool(SettingBezierSplitGuard, "Bezier curves: Prevent freeze on complex paths",
+                    defaultValue: true,
+                    restartRequired: true,
+                    description: "Guard against runaway recursion in Wine's bezier intersection code. Prevents Affinity from hanging when editing complex vector paths (e.g. embedded SVGs with overlapping bezier curves).")
                 .AddEnum(ColorPickerMagnifierFixKey, "Color picker: Wayland zoom magnifier fix",
                     new List<EnumOption>
                     {
@@ -73,6 +83,17 @@ namespace WineFix
             if (context.Settings.GetEffectiveValue<bool>(CollinearJoinFixKey))
             {
                 Patches.CollinearJoinPatch.Apply();
+            }
+
+            if (context.Settings.GetEffectiveValue<bool>(SettingWidenStubFix))
+            {
+                Patches.WidenStubPatch.Apply();
+            }
+
+            if (context.Settings.GetEffectiveValue<bool>(SettingBezierSplitGuard))
+            {
+                Patches.BezierSplitGuardPatch.Apply();
+                Patches.BezierSplitBudgetPatch.Apply();
             }
 
             context.Patch("MainWindowLoaded fix",
