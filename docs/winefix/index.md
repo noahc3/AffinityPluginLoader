@@ -64,6 +64,12 @@ Use Native for color-accurate work (especially CMYK or wide-gamut documents). Us
 
 Intermittent startup crash from parallel font enumeration in `libkernel.dll`. Forces synchronous font loading. Enabled by default; [configurable](configuration.md).
 
+### Command-line file opening fix
+
+Opening `.af` files from the Linux desktop (e.g. double-clicking in a file manager) or via command line arguments fails under Wine. Affinity's `ProcessCommandLineArguments()` references the WinRT type `SharedStorageAccessManager`, which doesn't exist in Wine. The JIT throws a `TypeLoadException` when compiling the method — even for code paths that don't use it — which silently prevents file paths from being queued on a fresh launch, and crashes the app when a second instance sends files to an already-running instance via the single-instance IPC pipe.
+
+WineFix hooks `OnMainWindowLoaded` to open files from `GetCommandLineArgs()` directly via `IDocumentViewService`, and replaces `SingleInstanceThread` with a Wine-compatible implementation that avoids calling `ProcessCommandLineArguments`. Enabled by default; [configurable](configuration.md).
+
 ## Known Open Bugs
 
 These are under investigation and not yet patched:

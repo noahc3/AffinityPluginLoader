@@ -19,6 +19,8 @@ WineFix uses plugin ID `winefix`. Settings are stored in `apl/config/winefix.tom
 | `bezier_split_guard` | bool | `true` | Yes | Recursion guard and split budget to prevent freeze on complex vector paths. |
 | `color_picker_magnifier_fix` | enum | `auto` | Yes | Wayland zoom preview fix. Replaces `CopyFromScreen` (which returns black on Wayland) with a `BitBlt` from the canvas window. |
 | `color_picker_sampling_mode` | enum | `native` | No | Controls how the color picker samples color values. See [Sampling Modes](index.md#color-picker-sampling-modes). |
+| `canva_sign_in_helper` | bool | `true` | Yes | Patch the Canva sign-in dialog to include a helper textbox and instructions to complete sign-in without a protocol URL handler. |
+| `command_line_file_open` | bool | `true` | Yes | Fix opening files from the command line or desktop file manager. Bypasses Affinity's broken `ProcessCommandLineArguments` which references a WinRT type missing in Wine. |
 
 #### `color_picker_magnifier_fix`
 
@@ -57,5 +59,6 @@ APL__WINEFIX__<KEY>=<value>
 | Color picker magnifier fix | `APL__WINEFIX__COLOR_PICKER_MAGNIFIER_FIX` | `APL__WINEFIX__COLOR_PICKER_MAGNIFIER_FIX=disabled` |
 | Color picker sampling mode | `APL__WINEFIX__COLOR_PICKER_SAMPLING_MODE` | `APL__WINEFIX__COLOR_PICKER_SAMPLING_MODE=exact` |
 | Force synchronous font enumeration | `APL__WINEFIX__FORCE_SYNC_FONT_ENUM` | `APL__WINEFIX__FORCE_SYNC_FONT_ENUM=false` |
+| Command-line file opening fix | `APL__WINEFIX__COMMAND_LINE_FILE_OPEN` | `APL__WINEFIX__COMMAND_LINE_FILE_OPEN=false` |
 
 Environment variable overrides take priority over both the GUI and TOML values. They are temporary — the override only applies while the variable is set.
