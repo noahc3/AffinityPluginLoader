@@ -19,6 +19,7 @@ namespace WineFix
         public const string CollinearJoinFixKey = "collinear_join_fix";
         public const string SettingForceSyncFontEnum = "force_sync_font_enum";
         public const string SettingCanvaSignInHelper = "canva_sign_in_helper";
+        public const string SettingCommandLineFileOpen = "command_line_file_open";
 
         public override PluginSettingsDefinition DefineSettings()
         {
@@ -54,6 +55,10 @@ namespace WineFix
                     },
                     defaultValue: "native",
                     description: "- **Native:** Use Affinity's built-in color sampling. Colors sampled within the canvas bounds will use the native document color space, but the color of the highlighted pixel in the zoom preview may differ slightly from the actual color value sampled.\n- **Exact:** Pick the exact color of the highlighted pixel in the zoom preview. Samples from a screen capture in sRGB rather than the document's native color space. May be more intuitive, but not recommended when editing documents using CMYK or wide-gamut color spaces.")
+                .AddBool(SettingCommandLineFileOpen, "Command-line file opening fix",
+                    defaultValue: true,
+                    restartRequired: true,
+                    description: "Fix opening files from the command line or desktop file manager.")
                 .AddSection("Crash Fixes")
                 .AddBool(SettingForceSyncFontEnum, "Force synchronous font enumeration",
                     defaultValue: true,
@@ -63,6 +68,13 @@ namespace WineFix
 
         public override void OnPatch(Harmony harmony, IPluginContext context)
         {
+            // Fix command-line file opening (WinRT TypeLoadException workaround)
+            if (context.Settings.GetEffectiveValue<bool>(SettingCommandLineFileOpen))
+            {
+                context.Patch("CommandLineFileOpen fix",
+                    h => Patches.CommandLineFileOpenPatch.ApplyPatches(h));
+            }
+
             // Since these patch native code that we load ourselves,
             // we don't need to apply these with the defferal logic.
             if (context.Settings.GetEffectiveValue<bool>(BezierRenderingFixKey))
