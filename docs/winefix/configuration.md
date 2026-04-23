@@ -12,6 +12,11 @@ WineFix uses plugin ID `winefix`. Settings are stored in `apl/config/winefix.tom
 
 | Key | Type | Default | Restart Required | Description |
 |---|---|---|---|---|
+| `canva_sign_in_helper` | bool | `true` | Yes | Canva sign-in paste URL helper. |
+| `bezier_rendering_fix` | bool | `true` | Yes | Cubic-to-quadratic Bézier subdivision for accurate path rendering. |
+| `collinear_join_fix` | bool | `true` | Yes | Fix spike artifacts at collinear outline joins. |
+| `widen_stub_fix` | bool | `true` | Yes | Stub `ID2D1PathGeometry::Widen` to prevent freeze on stroked paths. |
+| `bezier_split_guard` | bool | `true` | Yes | Recursion guard and split budget to prevent freeze on complex vector paths. |
 | `color_picker_magnifier_fix` | enum | `auto` | Yes | Wayland zoom preview fix. Replaces `CopyFromScreen` (which returns black on Wayland) with a `BitBlt` from the canvas window. |
 | `color_picker_sampling_mode` | enum | `native` | No | Controls how the color picker samples color values. See [Sampling Modes](index.md#color-picker-sampling-modes). |
 | `canva_sign_in_helper` | bool | `true` | Yes | Patch the Canva sign-in dialog to include a helper textbox and instructions to complete sign-in without a protocol URL handler. |

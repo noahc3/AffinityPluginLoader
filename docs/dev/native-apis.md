@@ -150,6 +150,66 @@ NativePatch.Patch("d2d1", ".text",
 |---|---|
 | Hook a COM interface method (D2D1, DirectWrite, DXGI, etc.) | `ComHook.Hook` |
 | Call a COM method without hooking it | `ComHook.GetMethod` |
+| Detour a native function by address (inline hook) | `NativeHook.Hook` |
 | Patch a specific byte pattern in a native DLL | `NativePatch.Patch` |
 | Custom scanning of a native DLL's memory | `NativePatch.TryGetSection` |
 | Patch .NET methods (Affinity's managed code) | [Harmony](creating-a-plugin.md#patching-with-harmony) |
+
+## NativeHook
+
+Inline function detouring for native code. Overwrites a function's prologue with a jump to a managed delegate, and creates an executable trampoline so the hook can call through to the original function.
+
+Supports two prologue sizes:
+
+- **Large (≥ 12 bytes):** Direct absolute jump (`mov rax, imm64; jmp rax`) at the target site.
+- **Small (≥ 5 bytes):** Relative jump (`jmp rel32`) to a nearby relay thunk allocated within ±2GB of the target.
+
+### NativeHook.Hook
+
+Detour a native function at a given address.
+
+```csharp
+using AffinityPluginLoader.Native;
+
+[UnmanagedFunctionPointer(CallingConvention.StdCall)]
+delegate int MyFuncFn(IntPtr arg1, IntPtr arg2);
+
+// Hook the function — returns a delegate that calls the original
+MyFuncFn original = NativeHook.Hook<MyFuncFn>(funcAddress, prologueSize, new MyFuncFn(MyHook));
+
+static int MyHook(IntPtr arg1, IntPtr arg2)
+{
+    // Custom logic — can call original() to pass through
+    return original(arg1, arg2);
+}
+```
+
+**Parameters:**
+
+| Parameter | Description |
+|---|---|
+| `target` | `IntPtr` address of the function to hook |
+| `prologueSize` | Number of bytes to overwrite (≥ 5). Must end on an instruction boundary. |
+| `hook` | Replacement delegate (kept alive internally to prevent GC) |
+
+**Returns:** A delegate wrapping the original function (via trampoline).
+
+!!! warning "Prologue constraints"
+    - `prologueSize` must be ≥ 5 (for relative jump) or ≥ 12 (for absolute jump).
+    - The overwritten bytes must end on an instruction boundary.
+    - The relocated bytes **must not** contain RIP-relative instructions — choose a prologue size that avoids them.
+    - The target function must not be executing on any thread when hooked.
+
+### Example: Hooking a Non-Exported Function by Pattern Scan
+
+```csharp
+// Find the function by scanning for its unique prologue bytes
+if (NativePatch.TryGetSection("d2d1", ".text", out IntPtr start, out int size))
+{
+    byte[] pattern = { 0x56, 0x53, 0x48, 0x83, 0xEC, 0x48 }; // push rsi; push rbx; sub rsp,0x48
+    IntPtr funcAddr = ScanForPattern(start, size, pattern);
+
+    // Hook with 6-byte prologue (uses relative jump + nearby relay)
+    original = NativeHook.Hook<MyFuncFn>(funcAddr, 6, new MyFuncFn(MyHook));
+}
+```
