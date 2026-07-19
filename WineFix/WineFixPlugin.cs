@@ -22,6 +22,7 @@ namespace WineFix
         public const string SettingWidenStubFix = "widen_stub_fix";
         public const string SettingBezierSplitGuard = "bezier_split_guard";
         public const string SettingCommandLineFileOpen = "command_line_file_open";
+        public const string SettingMainWindowLoadedFix = "main_window_loaded_fix";
 
         public override PluginSettingsDefinition DefineSettings()
         {
@@ -69,6 +70,10 @@ namespace WineFix
                     defaultValue: true,
                     restartRequired: true,
                     description: "Fix opening files from the command line or desktop file manager.")
+                .AddBool(SettingMainWindowLoadedFix, "Preferences saving fix (HasPreviousPackageInstalled)",
+                    defaultValue: false,
+                    restartRequired: true,
+                    description: "Patch OnMainWindowLoaded to skip the HasPreviousPackageInstalled check that throws under Wine (fixes preferences not saving). On Affinity 3.2.x this exposes the first-run onboarding/home page which is hosted in an in-app WebView2 that Wine cannot render, causing a startup crash. Leave disabled unless you know your Affinity/Wine combination doesn't hit the WebView2 path.")
                 .AddSection("Crash Fixes")
                 .AddBool(SettingForceSyncFontEnum, "Force synchronous font enumeration",
                     defaultValue: true,
@@ -108,8 +113,15 @@ namespace WineFix
                 Patches.BezierSplitBudgetPatch.Apply();
             }
 
-            context.Patch("MainWindowLoaded fix",
-                h => Patches.MainWindowLoadedPatch.ApplyPatches(h));
+            if (context.Settings.GetEffectiveValue<bool>(SettingMainWindowLoadedFix))
+            {
+                context.Patch("MainWindowLoaded fix",
+                    h => Patches.MainWindowLoadedPatch.ApplyPatches(h));
+            }
+            else
+            {
+                Logger.Info("Skipping MainWindowLoaded fix (disabled to avoid WebView2 onboarding crash on Affinity 3.2.x)");
+            }
 
             if (context.Settings.GetEffectiveValue<bool>(SettingForceSyncFontEnum))
             {
