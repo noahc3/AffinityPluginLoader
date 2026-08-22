@@ -577,11 +577,23 @@ static BOOL d2d_point_on_line_segment(const D2D1_POINT_2F *q, const D2D1_POINT_2
  * also done. If neither of those is the case, we subdivide the Bézier segment
  * and try again. */
 static BOOL d2d_point_on_bezier_segment(const D2D1_POINT_2F *q, const D2D1_POINT_2F *p0,
-        const D2D1_BEZIER_SEGMENT *b, const D2D1_MATRIX_3X2_F *transform, float stroke_width, float tolerance)
+        const D2D1_BEZIER_SEGMENT *b, const D2D1_MATRIX_3X2_F *transform, float stroke_width, float tolerance,
+        unsigned int depth)
 {
     float d1, d2, d3, d4, d, l, m, w, w2;
     D2D1_POINT_2F t[7], start, end, v_p;
     D2D1_BEZIER_SEGMENT b0, b1;
+
+    /* At extreme zoom levels the transformed coordinates below can exceed the float32
+     * mantissa's precision (2^23), so the error estimate never shrinks below tolerance
+     * and this function would otherwise recurse forever. Cap the depth like the sibling
+     * cubic-to-quadratic subdivision function does, and treat a still-ambiguous result
+     * at max depth as "not on the curve" rather than looping indefinitely. */
+    if (depth > 20)
+    {
+        WARN("Maximum recursion depth reached for bezier hit-testing - treating as not on curve.\n");
+        return FALSE;
+    }
 
     m = 1.0f;
     w = stroke_width * 0.5f;
@@ -733,8 +745,8 @@ static BOOL d2d_point_on_bezier_segment(const D2D1_POINT_2F *q, const D2D1_POINT
     d2d_point_lerp(&b0.point2, &t[0], &b0.point1, 0.5f);
     d2d_point_lerp(&b0.point3, &b0.point2, &b1.point1, 0.5f);
 
-    return d2d_point_on_bezier_segment(q, p0, &b0, transform, stroke_width, tolerance)
-            || d2d_point_on_bezier_segment(q, &b0.point3, &b1, transform, stroke_width, tolerance);
+    return d2d_point_on_bezier_segment(q, p0, &b0, transform, stroke_width, tolerance, depth + 1)
+            || d2d_point_on_bezier_segment(q, &b0.point3, &b1, transform, stroke_width, tolerance, depth + 1);
 }
 
 static void d2d_rect_union(D2D1_RECT_F *l, const D2D1_RECT_F *r)
@@ -3856,7 +3868,7 @@ static HRESULT STDMETHODCALLTYPE d2d_path_geometry_StrokeContainsPoint(ID2D1Path
                     b.point1 = figure->original_bezier_controls[bezier_idx++];
                     b.point2 = figure->original_bezier_controls[bezier_idx++];
                     b.point3 = figure->vertices[j];
-                    *contains = d2d_point_on_bezier_segment(&point, &p, &b, transform, stroke_width, tolerance);
+                    *contains = d2d_point_on_bezier_segment(&point, &p, &b, transform, stroke_width, tolerance, 0);
                     p = b.point3;
                     break;
 
