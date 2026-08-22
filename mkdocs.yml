@@ -41,3 +41,5 @@ nav:
     - Overview: winefix/index.md
     - Installation: winefix/installation.md
     - Configuration: winefix/configuration.md
+  - LoginFix:
+    - Overview: loginfix/index.md

@@ -27,12 +27,16 @@ Plugins extend `AffinityPlugin` and use [Harmony](https://github.com/pardeike/Ha
 
 WineFix is an APL plugin that fixes Wine-specific Affinity bugs. See [WineFix/](WineFix/) for an overview, or the [WineFix docs](https://apl.ncuroe.dev/winefix/) for full details.
 
+## LoginFix
+
+LoginFix is an APL plugin that fixes the Canva sign-in flow crashing under Wine. See [LoginFix/](LoginFix/) for the root cause and fix details.
+
 ## Licensing
 
 APL (AffinityHook, AffinityBootstrap, AffinityPluginLoader) is licensed under the **MIT License**. See the LICENSE file under each project directory.
 
 > [!WARNING]
-> WineFix is offered under a different license. See [WineFix#Licensing](WineFix#licensing) for information.
+> WineFix and LoginFix are offered under a different license. See [WineFix#Licensing](WineFix#licensing) and [LoginFix#Licensing](LoginFix#licensing) for information.
 
 ### License Exemption
 

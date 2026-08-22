@@ -12,3 +12,4 @@ Supports Windows and Linux (Wine).
 - [Configuration](guide/configuration.md) — APL settings and how to configure them
 - [Creating a Plugin](dev/creating-a-plugin.md) — Developer guide for building APL plugins
 - [WineFix](winefix/index.md) — Plugin that fixes Wine-specific Affinity bugs
+- [LoginFix](loginfix/index.md) — Plugin that fixes the Canva sign-in crash under Wine

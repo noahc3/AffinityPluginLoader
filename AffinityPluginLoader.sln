@@ -9,6 +9,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AffinityPluginLoader", "Aff
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "WineFix", "WineFix\WineFix.csproj", "{A9134DEC-BC99-468E-ADE6-8DAC9883F11E}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "LoginFix", "LoginFix\LoginFix.csproj", "{BC45F218-FDC1-49F5-8B6E-E3151E1BE134}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|x64 = Debug|x64
@@ -27,6 +29,10 @@ Global
 		{A9134DEC-BC99-468E-ADE6-8DAC9883F11E}.Debug|x64.Build.0 = Debug|x64
 		{A9134DEC-BC99-468E-ADE6-8DAC9883F11E}.Release|x64.ActiveCfg = Release|x64
 		{A9134DEC-BC99-468E-ADE6-8DAC9883F11E}.Release|x64.Build.0 = Release|x64
+		{BC45F218-FDC1-49F5-8B6E-E3151E1BE134}.Debug|x64.ActiveCfg = Debug|x64
+		{BC45F218-FDC1-49F5-8B6E-E3151E1BE134}.Debug|x64.Build.0 = Debug|x64
+		{BC45F218-FDC1-49F5-8B6E-E3151E1BE134}.Release|x64.ActiveCfg = Release|x64
+		{BC45F218-FDC1-49F5-8B6E-E3151E1BE134}.Release|x64.Build.0 = Release|x64
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
