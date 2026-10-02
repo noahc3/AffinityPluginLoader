@@ -22,6 +22,7 @@ namespace WineFix
         public const string SettingWidenStubFix = "widen_stub_fix";
         public const string SettingBezierSplitGuard = "bezier_split_guard";
         public const string SettingCommandLineFileOpen = "command_line_file_open";
+        public const string SettingPinPluginHost = "pin_plugin_host";
 
         public override PluginSettingsDefinition DefineSettings()
         {
@@ -73,7 +74,23 @@ namespace WineFix
                 .AddBool(SettingForceSyncFontEnum, "Force synchronous font enumeration",
                     defaultValue: true,
                     restartRequired: true,
-                    description: "Disable parallel font enumeration to significantly reduce frequency of startup crashes. May increase application startup time on systems with lots of fonts.");
+                    description: "Disable parallel font enumeration to significantly reduce frequency of startup crashes. May increase application startup time on systems with lots of fonts.")
+                .AddBool(SettingPinPluginHost, "Keep the plugin host loaded",
+                    defaultValue: true,
+                    restartRequired: true,
+                    description: "Hold a reference to libplugins.dll so it is never unloaded. Affinity frees its plugin host during a session and then calls back into it, which crashes the application with an access violation. Holding the module keeps the released code mapped so the stale call still lands on real instructions.");
+        }
+
+        public override void OnLoad(IPluginContext context)
+        {
+            if (context.Settings.GetEffectiveValue<bool>(SettingPinPluginHost))
+            {
+                Patches.PluginHostPin.Apply();
+            }
+            else
+            {
+                Logger.Info("Skipping plugin host hold (setting: disabled)");
+            }
         }
 
         public override void OnPatch(Harmony harmony, IPluginContext context)

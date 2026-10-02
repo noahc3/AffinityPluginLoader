@@ -23,6 +23,7 @@ For detailed instructions, see the [WineFix Installation Guide](https://apl.ncur
 - **Font enumeration fix** — Intermittent startup crash from parallel font enumeration. Fixed by forcing synchronous font loading.
 - **Canva sign-in helper** — Canva sign-in helper to allow copy/paste of the authorization URL to complete sign-in, no protocol handler required.
 - **Command-line file opening fix** — Opening files from the desktop or command line crashes or silently fails due to a missing WinRT type. Fixed by bypassing `ProcessCommandLineArguments` and opening files directly via `IDocumentViewService`.
+- **Plugin host pin** — Affinity frees its plugin host (`libplugins.dll`) during a session and later calls back into it, crashing with an access violation. Fixed by holding a reference to the module so the released code stays mapped.
 
 ## Configuration
 
