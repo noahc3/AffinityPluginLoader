@@ -91,8 +91,6 @@ namespace AffinityPluginLoader
                     Console.WriteLine();
                 }
                 
-                var forwardedArgs = string.Join(" ", args.Select(a => a.Contains(" ") ? "\"" + a + "\"" : a));
-
                 Console.WriteLine($"Starting Affinity from: {affinityExe}");
                 Console.WriteLine($"Mode: {(detachMode ? "Detached" : "Attached")}");
                 
@@ -100,7 +98,7 @@ namespace AffinityPluginLoader
                 var startInfo = new ProcessStartInfo
                 {
                     FileName = affinityExe,
-                    Arguments = forwardedArgs,
+                    Arguments = BuildArguments(args),
                     WorkingDirectory = affinityDir,
                     UseShellExecute = false,
                     CreateNoWindow = false
@@ -195,6 +193,64 @@ namespace AffinityPluginLoader
             }
         }
         
+        private static readonly char[] ArgumentDelimiters = { ' ', '\t', '\n', '\v', '"' };
+
+        /// <summary>
+        /// Join arguments into a command line that CreateProcess will parse back
+        /// into the same arguments.
+        /// </summary>
+        /// <remarks>
+        /// With UseShellExecute = false the Arguments string is handed to
+        /// CreateProcess and re-parsed using the CommandLineToArgvW rules, so an
+        /// unquoted path containing spaces arrives at the target as several
+        /// arguments. Affinity then reports "failed to open" once per fragment.
+        /// </remarks>
+        private static string BuildArguments(string[] args)
+        {
+            var sb = new StringBuilder();
+            for (int i = 0; i < args.Length; i++)
+            {
+                if (i > 0) sb.Append(' ');
+                sb.Append(QuoteArgument(args[i]));
+            }
+            return sb.ToString();
+        }
+
+        /// <summary>
+        /// Quote a single argument per the CommandLineToArgvW rules.
+        /// </summary>
+        /// <remarks>
+        /// Backslashes are only special immediately before a quote, which is why
+        /// a plain Replace("\"", "\\\"") is not sufficient: a Windows path
+        /// ending in a separator, such as C:\My Folder\, would otherwise have its
+        /// closing quote escaped by the trailing backslash and swallow the next
+        /// argument.
+        /// </remarks>
+        private static string QuoteArgument(string arg)
+        {
+            if (arg.Length > 0 && arg.IndexOfAny(ArgumentDelimiters) < 0) return arg;
+
+            var sb = new StringBuilder(arg.Length + 2);
+            sb.Append('"');
+            for (int i = 0; ; i++)
+            {
+                int backslashes = 0;
+                while (i < arg.Length && arg[i] == '\\') { backslashes++; i++; }
+
+                if (i == arg.Length)
+                {
+                    // double any trailing backslashes so they do not escape the closing quote
+                    sb.Append('\\', backslashes * 2);
+                    break;
+                }
+
+                if (arg[i] == '"') sb.Append('\\', backslashes * 2 + 1).Append('"');
+                else sb.Append('\\', backslashes).Append(arg[i]);
+            }
+            sb.Append('"');
+            return sb.ToString();
+        }
+
         /// <summary>
         /// Inject using simple CreateRemoteThread + LoadLibrary
         /// This works on both Windows and Wine - we always use the native bootstrap
