@@ -26,7 +26,7 @@ WineFix uses plugin ID `winefix`. Settings are stored in `apl/config/winefix.tom
 
 | Value | Behavior |
 |---|---|
-| `auto` | Apply the fix only if Wayland or XWayland is detected (checks `WAYLAND_DISPLAY`). |
+| `auto` | Apply the fix only if Wayland or XWayland is detected (checks `WAYLAND_DISPLAY`, then `XDG_SESSION_TYPE`; Wine 11.16 and later pass only the latter, as `WINE_HOST_XDG_SESSION_TYPE`). |
 | `enabled` | Always apply the fix. |
 | `disabled` | Never apply the fix. |
 

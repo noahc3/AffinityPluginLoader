@@ -119,7 +119,7 @@ namespace WineFix
 
             var magnifierFix = context.Settings.GetEffectiveValue<string>(ColorPickerMagnifierFixKey);
             bool applyMagnifierFix = magnifierFix == "enabled" ||
-                (magnifierFix == "auto" && !string.IsNullOrEmpty(Environment.GetEnvironmentVariable("WAYLAND_DISPLAY")));
+                (magnifierFix == "auto" && IsWaylandSession());
 
             if (applyMagnifierFix)
             {
@@ -140,6 +140,25 @@ namespace WineFix
             {
                 Logger.Info("Skipping Canva sign-in helper (disabled in settings)");
             }
+        }
+
+        /// <summary>
+        /// Whether the desktop session is Wayland; Wine itself may be running on XWayland.
+        /// Wine 11.16 and later leave WAYLAND_DISPLAY out of the Windows environment, but
+        /// pass the XDG session variables through with a WINE_HOST_ prefix.
+        /// </summary>
+        private static bool IsWaylandSession()
+        {
+            if (!string.IsNullOrEmpty(Environment.GetEnvironmentVariable("WAYLAND_DISPLAY")))
+                return true;
+
+            foreach (var name in new[] { "WINE_HOST_XDG_SESSION_TYPE", "XDG_SESSION_TYPE" })
+            {
+                if (string.Equals(Environment.GetEnvironmentVariable(name), "wayland", StringComparison.OrdinalIgnoreCase))
+                    return true;
+            }
+
+            return false;
         }
     }
 }
