@@ -22,6 +22,7 @@ namespace WineFix
         public const string SettingWidenStubFix = "widen_stub_fix";
         public const string SettingBezierSplitGuard = "bezier_split_guard";
         public const string SettingCommandLineFileOpen = "command_line_file_open";
+        public const string SettingContextBarItemStyle = "context_bar_item_style_fix";
 
         public override PluginSettingsDefinition DefineSettings()
         {
@@ -69,6 +70,10 @@ namespace WineFix
                     defaultValue: true,
                     restartRequired: true,
                     description: "Fix opening files from the command line or desktop file manager.")
+                .AddBool(SettingContextBarItemStyle, "Context toolbar: Fix empty Leading dropdown",
+                    defaultValue: true,
+                    restartRequired: true,
+                    description: "Affinity 3.3 gives the text context toolbar's Leading dropdown items an empty template, so the list opens with nothing in it. Base those item styles on the standard dropdown item style instead. Does nothing once Affinity's own style has content.")
                 .AddSection("Crash Fixes")
                 .AddBool(SettingForceSyncFontEnum, "Force synchronous font enumeration",
                     defaultValue: true,
@@ -110,6 +115,16 @@ namespace WineFix
 
             context.Patch("MainWindowLoaded fix",
                 h => Patches.MainWindowLoadedPatch.ApplyPatches(h));
+
+            if (context.Settings.GetEffectiveValue<bool>(SettingContextBarItemStyle))
+            {
+                context.Patch("ContextBarItemStyle fix",
+                    h => Patches.ContextBarItemStylePatch.ApplyPatches(h));
+            }
+            else
+            {
+                Logger.Info("Skipping ContextBarItemStyle fix (setting: disabled)");
+            }
 
             if (context.Settings.GetEffectiveValue<bool>(SettingForceSyncFontEnum))
             {
