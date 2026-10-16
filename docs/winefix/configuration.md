@@ -21,6 +21,7 @@ WineFix uses plugin ID `winefix`. Settings are stored in `apl/config/winefix.tom
 | `color_picker_sampling_mode` | enum | `native` | No | Controls how the color picker samples color values. See [Sampling Modes](index.md#color-picker-sampling-modes). |
 | `canva_sign_in_helper` | bool | `true` | Yes | Patch the Canva sign-in dialog to include a helper textbox and instructions to complete sign-in without a protocol URL handler. |
 | `command_line_file_open` | bool | `true` | Yes | Fix opening files from the command line or desktop file manager. Bypasses Affinity's broken `ProcessCommandLineArguments` which references a WinRT type missing in Wine. |
+| `sub_tool_columns_fix` | bool | `true` | Yes | Keep the sub-tool panel's own column count (two for more than ten sub-tools) after a studio switch, which otherwise gives it the main tool pane's. |
 
 #### `color_picker_magnifier_fix`
 

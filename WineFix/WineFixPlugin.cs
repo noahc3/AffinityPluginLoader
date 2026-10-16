@@ -22,6 +22,7 @@ namespace WineFix
         public const string SettingWidenStubFix = "widen_stub_fix";
         public const string SettingBezierSplitGuard = "bezier_split_guard";
         public const string SettingCommandLineFileOpen = "command_line_file_open";
+        public const string SettingSubToolColumns = "sub_tool_columns_fix";
 
         public override PluginSettingsDefinition DefineSettings()
         {
@@ -69,6 +70,10 @@ namespace WineFix
                     defaultValue: true,
                     restartRequired: true,
                     description: "Fix opening files from the command line or desktop file manager.")
+                .AddBool(SettingSubToolColumns, "Sub-tool panel: Keep its columns across studio switches",
+                    defaultValue: true,
+                    restartRequired: true,
+                    description: "A studio switch gives the sub-tool panel the main tool pane's column count, so with a one-column tool pane the shape tools come back as one column running the height of the window until the next tool change. Put back the sub-tool panel's own rule (two columns for more than ten sub-tools) after a studio switch.")
                 .AddSection("Crash Fixes")
                 .AddBool(SettingForceSyncFontEnum, "Force synchronous font enumeration",
                     defaultValue: true,
@@ -110,6 +115,16 @@ namespace WineFix
 
             context.Patch("MainWindowLoaded fix",
                 h => Patches.MainWindowLoadedPatch.ApplyPatches(h));
+
+            if (context.Settings.GetEffectiveValue<bool>(SettingSubToolColumns))
+            {
+                context.Patch("SubToolColumns fix",
+                    h => Patches.SubToolColumnsPatch.ApplyPatches(h));
+            }
+            else
+            {
+                Logger.Info("Skipping SubToolColumns fix (setting: disabled)");
+            }
 
             if (context.Settings.GetEffectiveValue<bool>(SettingForceSyncFontEnum))
             {
